@@ -1,0 +1,349 @@
+"""
+NBA Playoff Outcome Prediction - Data Pipeline
+CS830 Final Project - Andrew Elkin
+
+Fetches regular season team stats and playoff game results from nba_api,
+constructs a feature matrix suitable for training a game outcome classifier.
+
+Output: data/training_data.csv, data/playoff_brackets.csv
+"""
+
+import time
+import os
+import pandas as pd
+import numpy as np
+from nba_api.stats.endpoints import (
+    leaguegamefinder,
+    teamdashboardbygeneralsplits,
+)
+from nba_api.stats.static import teams as nba_teams_static
+from nba_api.library.http import NBAHTTP
+
+# ── Fix for stats.nba.com blocking non-browser requests ──────────────────────
+# Without these headers the API will time out on every request.
+NBAHTTP.headers = {
+    "Host": "stats.nba.com",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "x-nba-stats-origin": "stats",
+    "x-nba-stats-token": "true",
+    "Connection": "keep-alive",
+    "Referer": "https://www.nba.com/",
+    "Origin": "https://www.nba.com",
+}
+
+# ── Config ────────────────────────────────────────────────────────────────────
+
+# Seasons to include. Format: 'YYYY-YY'
+# Skipping 2019-20 (bubble season — no home court) and 2011-12 (lockout, shortened)
+SEASONS = [
+    "2005-06", "2006-07", "2007-08", "2008-09", "2009-10",
+    "2010-11",            "2012-13", "2013-14", "2014-15",
+    "2015-16", "2016-17", "2017-18", "2018-19",
+                          "2020-21", "2021-22", "2022-23", "2023-24",
+]
+
+DATA_DIR = "data"
+SLEEP_SEC = 1.5   # be polite to stats.nba.com — avoid rate limiting
+TIMEOUT   = 60    # seconds — stats.nba.com can be slow; 30s default is too short
+MAX_RETRIES = 3   # retry on timeout/connection errors with exponential backoff
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def sleep():
+    time.sleep(SLEEP_SEC)
+
+
+def season_to_year(season: str) -> int:
+    """'2022-23' → 2023 (the year the playoffs occur)"""
+    return int(season[:4]) + 1
+
+
+# ── Step 1: Fetch raw game logs ───────────────────────────────────────────────
+
+def fetch_game_logs(season: str, season_type: str) -> pd.DataFrame:
+    """
+    Returns one row per team per game for a given season and type.
+    season_type: 'Regular Season' or 'Playoffs'
+    Retries up to MAX_RETRIES times with exponential backoff on timeout/errors.
+    """
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            finder = leaguegamefinder.LeagueGameFinder(
+                season_nullable=season,
+                league_id_nullable="00",
+                season_type_nullable=season_type,
+                timeout=TIMEOUT,
+            )
+            sleep()
+            df = finder.get_data_frames()[0]
+            df["SEASON"] = season
+            return df
+        except Exception as e:
+            if attempt == MAX_RETRIES:
+                raise
+            wait = SLEEP_SEC * (2 ** attempt)
+            print(f"  Attempt {attempt} failed ({e}). Retrying in {wait:.1f}s...")
+            time.sleep(wait)
+
+
+# ── Step 2: Compute season-level team features ────────────────────────────────
+
+def compute_team_features(reg_season_logs: pd.DataFrame) -> pd.DataFrame:
+    """
+    Aggregates per-team regular season stats into a single feature row per team.
+
+    Features computed:
+      - WIN_PCT:        win percentage
+      - NET_RATING:     average plus/minus per game
+      - OFF_EFF:        points scored per game (proxy for offensive efficiency)
+      - DEF_EFF:        points allowed per game (proxy for defensive efficiency)
+      - FG3A_PG:        3-point attempts per game
+      - FG3_PCT:        3-point field goal percentage
+      - REB_PG:         total rebounds per game
+      - TOV_PG:         turnovers per game
+    """
+    df = reg_season_logs.copy()
+
+    # Parse home/away from MATCHUP column (e.g. "BOS vs. MIA" or "BOS @ MIA")
+    df["HOME"] = df["MATCHUP"].apply(lambda x: 1 if "vs." in x else 0)
+
+    # Win flag
+    df["WIN"] = (df["WL"] == "W").astype(int)
+
+    # Points allowed: we need opponent points. Each game appears twice (both teams),
+    # so we can join on GAME_ID to get the opponent row.
+    pts_lookup = df[["GAME_ID", "TEAM_ID", "PTS"]].copy()
+    pts_lookup.columns = ["GAME_ID", "OPP_TEAM_ID", "OPP_PTS"]
+
+    df = df.merge(
+        pts_lookup,
+        left_on=["GAME_ID", "TEAM_ID"],
+        right_on=["GAME_ID", "OPP_TEAM_ID"],
+        how="left",
+        suffixes=("", "_opp"),
+    )
+    # After merge, rows where TEAM_ID == OPP_TEAM_ID are self-joins — drop them
+    df = df[df["TEAM_ID"] != df["OPP_TEAM_ID"]]
+
+    agg = df.groupby("TEAM_ID").agg(
+        TEAM_NAME=("TEAM_NAME", "first"),
+        TEAM_ABBREVIATION=("TEAM_ABBREVIATION", "first"),
+        GAMES=("GAME_ID", "count"),
+        WINS=("WIN", "sum"),
+        NET_RATING=("PLUS_MINUS", "mean"),
+        OFF_EFF=("PTS", "mean"),
+        DEF_EFF=("OPP_PTS", "mean"),
+        FG3A_PG=("FG3A", "mean"),
+        FG3_PCT=("FG3_PCT", "mean"),
+        REB_PG=("REB", "mean"),
+        TOV_PG=("TOV", "mean"),
+    ).reset_index()
+
+    agg["WIN_PCT"] = agg["WINS"] / agg["GAMES"]
+
+    return agg
+
+
+# ── Step 3: Compute head-to-head regular season win rate ──────────────────────
+
+def compute_h2h(reg_season_logs: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns a DataFrame with columns [TEAM_ID, OPP_TEAM_ID, H2H_WIN_PCT]
+    representing each team's win rate against each opponent in the regular season.
+    """
+    df = reg_season_logs.copy()
+    df["WIN"] = (df["WL"] == "W").astype(int)
+
+    # Build opponent lookup
+    opp = df[["GAME_ID", "TEAM_ID"]].copy()
+    opp.columns = ["GAME_ID", "OPP_TEAM_ID"]
+
+    df = df.merge(opp, on="GAME_ID", how="left")
+    df = df[df["TEAM_ID"] != df["OPP_TEAM_ID"]]
+
+    h2h = df.groupby(["TEAM_ID", "OPP_TEAM_ID"]).agg(
+        H2H_WINS=("WIN", "sum"),
+        H2H_GAMES=("WIN", "count"),
+    ).reset_index()
+
+    h2h["H2H_WIN_PCT"] = h2h["H2H_WINS"] / h2h["H2H_GAMES"]
+    return h2h[["TEAM_ID", "OPP_TEAM_ID", "H2H_WIN_PCT"]]
+
+
+# ── Step 4: Build training examples from playoff games ────────────────────────
+
+def build_training_examples(
+    playoff_logs: pd.DataFrame,
+    team_features: pd.DataFrame,
+    h2h: pd.DataFrame,
+    season: str,
+) -> pd.DataFrame:
+    """
+    For each playoff game, creates one training row:
+      features of home team (or team1) vs. away team, with label = 1 if home wins.
+
+    Each game appears twice in playoff_logs (one row per team).
+    We isolate home team rows and join away team stats.
+    """
+    df = playoff_logs.copy()
+    df["WIN"] = (df["WL"] == "W").astype(int)
+    df["HOME"] = df["MATCHUP"].apply(lambda x: 1 if "vs." in x else 0)
+
+    # Split into home/away views of the same game
+    home = df[df["HOME"] == 1][["GAME_ID", "TEAM_ID", "WIN"]].copy()
+    away = df[df["HOME"] == 0][["GAME_ID", "TEAM_ID"]].copy()
+    away.columns = ["GAME_ID", "OPP_TEAM_ID"]
+
+    games = home.merge(away, on="GAME_ID", how="inner")
+    games["SEASON"] = season
+
+    # Attach home team features
+    feat_cols = ["TEAM_ID", "WIN_PCT", "NET_RATING", "OFF_EFF", "DEF_EFF",
+                 "FG3A_PG", "FG3_PCT", "REB_PG", "TOV_PG"]
+    home_feats = team_features[feat_cols].add_prefix("HOME_").rename(
+        columns={"HOME_TEAM_ID": "TEAM_ID"}
+    )
+    away_feats = team_features[feat_cols].add_prefix("AWAY_").rename(
+        columns={"AWAY_TEAM_ID": "OPP_TEAM_ID"}
+    )
+
+    games = games.merge(home_feats, on="TEAM_ID", how="left")
+    games = games.merge(away_feats, on="OPP_TEAM_ID", how="left")
+
+    # Attach head-to-head win pct (home team's record vs away team)
+    games = games.merge(
+        h2h.rename(columns={"OPP_TEAM_ID": "OPP_TEAM_ID", "H2H_WIN_PCT": "H2H_WIN_PCT"}),
+        on=["TEAM_ID", "OPP_TEAM_ID"],
+        how="left",
+    )
+    # Fill missing H2H (teams that didn't meet in regular season) with 0.5
+    games["H2H_WIN_PCT"] = games["H2H_WIN_PCT"].fillna(0.5)
+
+    # Compute differentials — these are often more predictive than raw values
+    games["DIFF_WIN_PCT"]  = games["HOME_WIN_PCT"]  - games["AWAY_WIN_PCT"]
+    games["DIFF_NET_RTG"]  = games["HOME_NET_RATING"] - games["AWAY_NET_RATING"]
+    games["DIFF_OFF_EFF"]  = games["HOME_OFF_EFF"]  - games["AWAY_OFF_EFF"]
+    games["DIFF_DEF_EFF"]  = games["HOME_DEF_EFF"]  - games["AWAY_DEF_EFF"]
+    games["DIFF_FG3A_PG"]  = games["HOME_FG3A_PG"]  - games["AWAY_FG3A_PG"]
+    games["DIFF_FG3_PCT"]  = games["HOME_FG3_PCT"]  - games["AWAY_FG3_PCT"]
+    games["DIFF_REB_PG"]   = games["HOME_REB_PG"]   - games["AWAY_REB_PG"]
+    games["DIFF_TOV_PG"]   = games["HOME_TOV_PG"]   - games["AWAY_TOV_PG"]
+
+    # Label: 1 = home team wins
+    games.rename(columns={"WIN": "LABEL"}, inplace=True)
+
+    return games
+
+
+# ── Step 5: Build playoff bracket summary (series-level) ─────────────────────
+
+def build_bracket_summary(playoff_logs: pd.DataFrame, season: str) -> pd.DataFrame:
+    """
+    Collapses individual playoff games into series results.
+    Returns one row per series with the winner and game count.
+    """
+    df = playoff_logs.copy()
+    df["WIN"] = (df["WL"] == "W").astype(int)
+    df["HOME"] = df["MATCHUP"].apply(lambda x: 1 if "vs." in x else 0)
+
+    home = df[df["HOME"] == 1][["GAME_ID", "TEAM_ID", "TEAM_ABBREVIATION", "WIN"]].copy()
+    away = df[df["HOME"] == 0][["GAME_ID", "TEAM_ID", "TEAM_ABBREVIATION"]].copy()
+    away.columns = ["GAME_ID", "OPP_TEAM_ID", "OPP_ABBREVIATION"]
+
+    games = home.merge(away, on="GAME_ID")
+
+    # Series key: sorted pair of team IDs so home/away doesn't matter
+    games["SERIES_KEY"] = games.apply(
+        lambda r: "_".join(sorted([str(r["TEAM_ID"]), str(r["OPP_TEAM_ID"])])), axis=1
+    )
+
+    series = games.groupby("SERIES_KEY").agg(
+        HOME_TEAM_ID=("TEAM_ID", "first"),
+        AWAY_TEAM_ID=("OPP_TEAM_ID", "first"),
+        HOME_ABBREV=("TEAM_ABBREVIATION", "first"),
+        AWAY_ABBREV=("OPP_ABBREVIATION", "first"),
+        HOME_WINS=("WIN", "sum"),
+        TOTAL_GAMES=("GAME_ID", "count"),
+    ).reset_index()
+
+    series["AWAY_WINS"] = series["TOTAL_GAMES"] - series["HOME_WINS"]
+    series["SERIES_WINNER"] = series.apply(
+        lambda r: r["HOME_ABBREV"] if r["HOME_WINS"] > r["AWAY_WINS"] else r["AWAY_ABBREV"],
+        axis=1
+    )
+    series["SEASON"] = season
+
+    return series
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+def main():
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    all_training = []
+    all_brackets = []
+
+    for season in SEASONS:
+        print(f"\n{'='*50}")
+        print(f"Processing season: {season}")
+        print(f"{'='*50}")
+
+        try:
+            # Regular season logs
+            print("  Fetching regular season logs...")
+            reg_logs = fetch_game_logs(season, "Regular Season")
+            print(f"  → {len(reg_logs)} team-game rows")
+
+            # Playoff logs
+            print("  Fetching playoff logs...")
+            playoff_logs = fetch_game_logs(season, "Playoffs")
+            print(f"  → {len(playoff_logs)} team-game rows")
+
+            if playoff_logs.empty:
+                print("  No playoff data — skipping.")
+                continue
+
+            # Compute features
+            print("  Computing team features...")
+            team_features = compute_team_features(reg_logs)
+
+            print("  Computing head-to-head records...")
+            h2h = compute_h2h(reg_logs)
+
+            print("  Building training examples...")
+            training = build_training_examples(playoff_logs, team_features, h2h, season)
+            all_training.append(training)
+            print(f"  → {len(training)} training examples")
+
+            print("  Building bracket summary...")
+            bracket = build_bracket_summary(playoff_logs, season)
+            all_brackets.append(bracket)
+            print(f"  → {len(bracket)} series")
+
+        except Exception as e:
+            print(f"  ERROR on {season}: {e}")
+            continue
+
+    # Save outputs
+    if all_training:
+        training_df = pd.concat(all_training, ignore_index=True)
+        training_path = os.path.join(DATA_DIR, "training_data.csv")
+        training_df.to_csv(training_path, index=False)
+        print(f"\n✓ Training data saved: {training_path} ({len(training_df)} rows)")
+
+    if all_brackets:
+        bracket_df = pd.concat(all_brackets, ignore_index=True)
+        bracket_path = os.path.join(DATA_DIR, "playoff_brackets.csv")
+        bracket_df.to_csv(bracket_path, index=False)
+        print(f"✓ Bracket data saved: {bracket_path} ({len(bracket_df)} rows)")
+
+    print("\nDone!")
+
+
+if __name__ == "__main__":
+    main()
