@@ -12,28 +12,7 @@ import time
 import os
 import pandas as pd
 import numpy as np
-from nba_api.stats.endpoints import (
-    leaguegamefinder,
-    teamdashboardbygeneralsplits,
-)
-from nba_api.stats.static import teams as nba_teams_static
-from nba_api.library.http import NBAHTTP
-
-# ── Fix for stats.nba.com blocking non-browser requests ──────────────────────
-# Without these headers the API will time out on every request.
-NBAHTTP.headers = {
-    "Host": "stats.nba.com",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
-    "x-nba-stats-origin": "stats",
-    "x-nba-stats-token": "true",
-    "Connection": "keep-alive",
-    "Referer": "https://www.nba.com/",
-    "Origin": "https://www.nba.com",
-}
+from nba_api.stats.endpoints import leaguegamefinder
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -47,7 +26,7 @@ SEASONS = [
 ]
 
 DATA_DIR = "data"
-SLEEP_SEC = 1.5   # be polite to stats.nba.com — avoid rate limiting
+SLEEP_SEC = 2.5   # be polite to stats.nba.com — avoid rate limiting
 TIMEOUT   = 60    # seconds — stats.nba.com can be slow; 30s default is too short
 MAX_RETRIES = 3   # retry on timeout/connection errors with exponential backoff
 
@@ -68,8 +47,18 @@ def fetch_game_logs(season: str, season_type: str) -> pd.DataFrame:
     """
     Returns one row per team per game for a given season and type.
     season_type: 'Regular Season' or 'Playoffs'
-    Retries up to MAX_RETRIES times with exponential backoff on timeout/errors.
+    Caches results to disk so re-runs don't hit the API again.
+    Retries up to MAX_RETRIES times with exponential backoff on errors.
     """
+    safe_type = season_type.replace(" ", "_")
+    cache_path = os.path.join(DATA_DIR, f"cache_{season}_{safe_type}.csv")
+
+    if os.path.exists(cache_path):
+        print(f"  Loading from cache: {cache_path}")
+        df = pd.read_csv(cache_path)
+        df["TEAM_ID"] = df["TEAM_ID"].astype(int)  # enforce type on cache load
+        return df
+
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             finder = leaguegamefinder.LeagueGameFinder(
@@ -81,6 +70,8 @@ def fetch_game_logs(season: str, season_type: str) -> pd.DataFrame:
             sleep()
             df = finder.get_data_frames()[0]
             df["SEASON"] = season
+            df["TEAM_ID"] = df["TEAM_ID"].astype(int)  # enforce type before caching
+            df.to_csv(cache_path, index=False)
             return df
         except Exception as e:
             if attempt == MAX_RETRIES:
@@ -114,19 +105,11 @@ def compute_team_features(reg_season_logs: pd.DataFrame) -> pd.DataFrame:
     # Win flag
     df["WIN"] = (df["WL"] == "W").astype(int)
 
-    # Points allowed: we need opponent points. Each game appears twice (both teams),
-    # so we can join on GAME_ID to get the opponent row.
+    # Points allowed: merge on GAME_ID only, then drop self-matches
     pts_lookup = df[["GAME_ID", "TEAM_ID", "PTS"]].copy()
     pts_lookup.columns = ["GAME_ID", "OPP_TEAM_ID", "OPP_PTS"]
 
-    df = df.merge(
-        pts_lookup,
-        left_on=["GAME_ID", "TEAM_ID"],
-        right_on=["GAME_ID", "OPP_TEAM_ID"],
-        how="left",
-        suffixes=("", "_opp"),
-    )
-    # After merge, rows where TEAM_ID == OPP_TEAM_ID are self-joins — drop them
+    df = df.merge(pts_lookup, on="GAME_ID", how="left")
     df = df[df["TEAM_ID"] != df["OPP_TEAM_ID"]]
 
     agg = df.groupby("TEAM_ID").agg(
@@ -144,6 +127,7 @@ def compute_team_features(reg_season_logs: pd.DataFrame) -> pd.DataFrame:
     ).reset_index()
 
     agg["WIN_PCT"] = agg["WINS"] / agg["GAMES"]
+    agg["TEAM_ID"] = agg["TEAM_ID"].astype(int)
 
     return agg
 
@@ -171,6 +155,9 @@ def compute_h2h(reg_season_logs: pd.DataFrame) -> pd.DataFrame:
     ).reset_index()
 
     h2h["H2H_WIN_PCT"] = h2h["H2H_WINS"] / h2h["H2H_GAMES"]
+    h2h["TEAM_ID"] = h2h["TEAM_ID"].astype(int)
+    h2h["OPP_TEAM_ID"] = h2h["OPP_TEAM_ID"].astype(int)
+
     return h2h[["TEAM_ID", "OPP_TEAM_ID", "H2H_WIN_PCT"]]
 
 
@@ -189,6 +176,8 @@ def build_training_examples(
     Each game appears twice in playoff_logs (one row per team).
     We isolate home team rows and join away team stats.
     """
+    
+    
     df = playoff_logs.copy()
     df["WIN"] = (df["WL"] == "W").astype(int)
     df["HOME"] = df["MATCHUP"].apply(lambda x: 1 if "vs." in x else 0)
@@ -201,6 +190,18 @@ def build_training_examples(
     games = home.merge(away, on="GAME_ID", how="inner")
     games["SEASON"] = season
 
+    # Normalize TEAM_ID types BEFORE merging — this is critical
+    games["TEAM_ID"] = games["TEAM_ID"].astype(int)
+    games["OPP_TEAM_ID"] = games["OPP_TEAM_ID"].astype(int)
+    team_features["TEAM_ID"] = team_features["TEAM_ID"].astype(int)
+    h2h["TEAM_ID"] = h2h["TEAM_ID"].astype(int)
+    h2h["OPP_TEAM_ID"] = h2h["OPP_TEAM_ID"].astype(int)
+    
+    print("games TEAM_ID sample:", games["TEAM_ID"].head().tolist(), games["TEAM_ID"].dtype)
+    print("team_features TEAM_ID sample:", team_features["TEAM_ID"].head().tolist(), team_features["TEAM_ID"].dtype)
+    print("games shape:", games.shape)
+    print("team_features shape:", team_features.shape)
+
     # Attach home team features
     feat_cols = ["TEAM_ID", "WIN_PCT", "NET_RATING", "OFF_EFF", "DEF_EFF",
                  "FG3A_PG", "FG3_PCT", "REB_PG", "TOV_PG"]
@@ -212,11 +213,14 @@ def build_training_examples(
     )
 
     games = games.merge(home_feats, on="TEAM_ID", how="left")
+    
+    print("After home merge nulls:", games["HOME_WIN_PCT"].isnull().sum(), "of", len(games))
+    
     games = games.merge(away_feats, on="OPP_TEAM_ID", how="left")
 
     # Attach head-to-head win pct (home team's record vs away team)
     games = games.merge(
-        h2h.rename(columns={"OPP_TEAM_ID": "OPP_TEAM_ID", "H2H_WIN_PCT": "H2H_WIN_PCT"}),
+        h2h,
         on=["TEAM_ID", "OPP_TEAM_ID"],
         how="left",
     )
