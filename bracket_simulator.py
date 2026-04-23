@@ -26,14 +26,25 @@ Library usage: pandas for data loading, functools.lru_cache for DP memoization.
 import os
 import numpy as np
 import pandas as pd
+import time
 from functools import lru_cache
 
 from logistic_regression import LogisticRegression, FEATURE_COLS
+from nba_api.stats.endpoints import leaguestandingsv3
+from nba_api.stats.library.parameters import Season
+
+headers = {
+    'Host': 'stats.nba.com',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:72.0) Gecko/20100101 Firefox/72.0',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Referer': 'https://www.nba.com/',
+    'Connection': 'keep-alive',
+}
 
 # ── NBA home court schedule ───────────────────────────────────────────────────
 # Higher seed hosts games 1, 2, 5, 7. Lower seed hosts games 3, 4, 6.
 HOME_GAMES = {1, 2, 5, 7}
-
 
 # ── Per-game win probability ──────────────────────────────────────────────────
 
@@ -306,6 +317,60 @@ def load_season_data(season, path="data/training_data.csv"):
 
     return team_stats, h2h_lookup
 
+def load_playoff_bracket(season: str, team_stats: dict, data_dir="data") -> tuple[dict, dict, dict]:
+    cache_path = os.path.join(data_dir, f"cache_{season}_standings.csv")
+
+    if os.path.exists(cache_path):
+        print(f"  Loading standings from cache: {cache_path}")
+        df = pd.read_csv(cache_path)
+    else:
+        MAX_RETRIES = 3
+        SLEEP_SEC = 2.5
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                standings = leaguestandingsv3.LeagueStandingsV3(
+                    season=season,
+                    season_type="Regular Season",
+                    league_id="00",
+                    headers=headers,
+                    timeout=120,   # bumped from 60
+                )
+                time.sleep(SLEEP_SEC)
+                df = standings.get_data_frames()[0]
+                df.to_csv(cache_path, index=False)
+                print(f"  Standings cached: {cache_path}")
+                break
+            except Exception as e:
+                if attempt == MAX_RETRIES:
+                    raise
+                wait = SLEEP_SEC * (2 ** attempt)
+                print(f"  Attempt {attempt} failed ({e}). Retrying in {wait:.1f}s...")
+                time.sleep(wait)
+
+    df["TeamID"] = df["TeamID"].astype(int)
+    
+    east = df[df["Conference"] == "East"].nsmallest(8, "PlayoffRank")
+    west = df[df["Conference"] == "West"].nsmallest(8, "PlayoffRank")
+
+    east_bracket, west_bracket, name_lookup = {}, {}, {}
+
+    for _, row in east.iterrows():
+        tid, seed = int(row["TeamID"]), int(row["PlayoffRank"])
+        if tid not in team_stats:
+            raise KeyError(f"No stats for East seed {seed} ({row['TeamAbbreviation']}, ID {tid}). "
+                           f"Check that {season} training data exists.")
+        east_bracket[seed] = team_stats[tid]
+        name_lookup[tid] = f"{row['TeamCity']} {row['TeamName']}"
+
+    for _, row in west.iterrows():
+        tid, seed = int(row["TeamID"]), int(row["PlayoffRank"])
+        if tid not in team_stats:
+            raise KeyError(f"No stats for West seed {seed} ({row['TeamAbbreviation']}, ID {tid}). "
+                           f"Check that {season} training data exists.")
+        west_bracket[seed] = team_stats[tid]
+        name_lookup[tid] = f"{row['TeamCity']} {row['TeamName']}"
+
+    return east_bracket, west_bracket, name_lookup
 
 # ── Results display ───────────────────────────────────────────────────────────
 
@@ -334,7 +399,7 @@ def print_results(champ_probs, conf_probs, west_by_seed, east_by_seed,
 
 def main():
     DATA_PATH   = "data/training_data.csv"
-    DEMO_SEASON = "2022-23"
+    DEMO_SEASON = "2023-24"
 
     df       = pd.read_csv(DATA_PATH)
     train_df = df[df["SEASON"] != DEMO_SEASON]
@@ -346,39 +411,10 @@ def main():
 
     team_stats, h2h_lookup = load_season_data(DEMO_SEASON, path=DATA_PATH)
     print(f"Loaded stats for {len(team_stats)} teams in {DEMO_SEASON}.\n")
-
-    east_bracket = {
-        1: team_stats[1610612749],   # MIL
-        2: team_stats[1610612738],   # BOS
-        3: team_stats[1610612755],   # PHI
-        4: team_stats[1610612739],   # CLE
-        5: team_stats[1610612752],   # NYK
-        6: team_stats[1610612751],   # BKN
-        7: team_stats[1610612748],   # MIA
-        8: team_stats[1610612737],   # ATL
-    }
-
-    west_bracket = {
-        1: team_stats[1610612743],   # DEN
-        2: team_stats[1610612763],   # MEM
-        3: team_stats[1610612758],   # SAC
-        4: team_stats[1610612756],   # PHX
-        5: team_stats[1610612746],   # LAC
-        6: team_stats[1610612744],   # GSW
-        7: team_stats[1610612747],   # LAL
-        8: team_stats[1610612750],   # MIN
-    }
-
-    name_lookup = {
-        1610612749: "MIL Bucks",     1610612738: "BOS Celtics",
-        1610612755: "PHI 76ers",     1610612739: "CLE Cavaliers",
-        1610612752: "NYK Knicks",    1610612751: "BKN Nets",
-        1610612748: "MIA Heat",      1610612737: "ATL Hawks",
-        1610612743: "DEN Nuggets",   1610612763: "MEM Grizzlies",
-        1610612758: "SAC Kings",     1610612756: "PHX Suns",
-        1610612746: "LAC Clippers",  1610612744: "GSW Warriors",
-        1610612747: "LAL Lakers",    1610612750: "MIN Timberwolves",
-    }
+    
+    HOLDOUT_SEASON = "2023-24"   # season you're simulating
+    
+    east_bracket, west_bracket, name_lookup = load_playoff_bracket(HOLDOUT_SEASON, team_stats)
 
     print(f"Simulating {DEMO_SEASON} playoff bracket...\n")
     champ_probs, conf_probs = simulate_bracket(
