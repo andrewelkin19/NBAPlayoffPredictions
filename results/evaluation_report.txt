@@ -1,0 +1,1273 @@
+==========================================================================
+  NBA PLAYOFF OUTCOME PREDICTION — EVALUATION REPORT
+  Model  : Logistic Regression (implemented from scratch, NumPy)
+  Method : Leave-one-season-out cross-validation
+  Data   : 1508 playoff game examples, 18 seasons
+==========================================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2005-06
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 89
+  Model accuracy   : 0.629
+  Baseline (seed)  : 0.573  (+0.056 vs baseline)
+  Log-loss         : 0.642
+  Brier score      : 0.225
+
+  Predicted bracket (2005-06):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) San Antonio Spurs vs (8) Sacramento Kings        → San Antonio Spurs (90%)
+    (2) Dallas Mavericks vs (7) Los Angeles Lakers      → Dallas Mavericks (58%)
+    (3) Phoenix Suns vs (6) Los Angeles Clippers    → Phoenix Suns (91%)
+    (4) Denver Nuggets vs (5) Memphis Grizzlies       → Memphis Grizzlies (64%)
+
+  Semifinals
+    San Antonio Spurs vs Memphis Grizzlies           → San Antonio Spurs (81%)
+    Dallas Mavericks vs Phoenix Suns                → Phoenix Suns (82%)
+
+  Conference Finals
+    San Antonio Spurs vs Phoenix Suns                → Phoenix Suns (53%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Detroit Pistons vs (8) Milwaukee Bucks         → Detroit Pistons (86%)
+    (2) Miami Heat vs (7) Chicago Bulls           → Miami Heat (78%)
+    (3) Cleveland Cavaliers vs (6) Indiana Pacers          → Cleveland Cavaliers (58%)
+    (4) New Jersey Nets vs (5) Washington Wizards      → New Jersey Nets (59%)
+
+  Semifinals
+    Detroit Pistons vs New Jersey Nets             → Detroit Pistons (85%)
+    Miami Heat vs Cleveland Cavaliers         → Miami Heat (74%)
+
+  Conference Finals
+    Detroit Pistons vs Miami Heat                  → Detroit Pistons (61%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Detroit Pistons vs Phoenix Suns                → Phoenix Suns (71%)
+
+  ★  PREDICTED CHAMPION: Phoenix Suns (71% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Phoenix Suns                   48.4%     37.1%  ███████████
+  San Antonio Spurs              41.6%     29.5%  ████████
+  Detroit Pistons                50.1%     18.1%  █████
+  Miami Heat                     29.4%      8.7%  ██
+  Dallas Mavericks                3.7%      1.7%  
+  Memphis Grizzlies               3.2%      1.3%  
+  Cleveland Cavaliers             6.2%      1.0%  
+  Chicago Bulls                   3.9%      0.6%  
+  Indiana Pacers                  4.3%      0.6%  
+  Los Angeles Lakers              1.2%      0.4%  
+  New Jersey Nets                 2.8%      0.2%  
+  Milwaukee Bucks                 1.9%      0.2%  
+  Los Angeles Clippers            0.7%      0.2%  
+  Sacramento Kings                0.6%      0.2%  
+  Denver Nuggets                  0.6%      0.1%  
+  Washington Wizards              1.4%      0.1%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2006-07
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 79
+  Model accuracy   : 0.709
+  Baseline (seed)  : 0.557  (+0.152 vs baseline)
+  Log-loss         : 0.594
+  Brier score      : 0.203
+
+  Predicted bracket (2006-07):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Dallas Mavericks vs (8) Golden State Warriors   → Dallas Mavericks (66%)
+    (2) Phoenix Suns vs (7) Los Angeles Lakers      → Phoenix Suns (92%)
+    (3) San Antonio Spurs vs (6) Denver Nuggets          → San Antonio Spurs (87%)
+    (4) Utah Jazz vs (5) Houston Rockets         → Houston Rockets (53%)
+
+  Semifinals
+    Dallas Mavericks vs Houston Rockets             → Dallas Mavericks (56%)
+    Phoenix Suns vs San Antonio Spurs           → Phoenix Suns (57%)
+
+  Conference Finals
+    Dallas Mavericks vs Phoenix Suns                → Phoenix Suns (67%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Detroit Pistons vs (8) Orlando Magic           → Detroit Pistons (60%)
+    (2) Cleveland Cavaliers vs (7) Washington Wizards      → Cleveland Cavaliers (82%)
+    (3) Toronto Raptors vs (6) New Jersey Nets         → Toronto Raptors (52%)
+    (4) Miami Heat vs (5) Chicago Bulls           → Chicago Bulls (60%)
+
+  Semifinals
+    Detroit Pistons vs Chicago Bulls               → Chicago Bulls (69%)
+    Cleveland Cavaliers vs Toronto Raptors             → Cleveland Cavaliers (62%)
+
+  Conference Finals
+    Cleveland Cavaliers vs Chicago Bulls               → Chicago Bulls (52%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Phoenix Suns vs Chicago Bulls               → Phoenix Suns (82%)
+
+  ★  PREDICTED CHAMPION: Phoenix Suns (82% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Phoenix Suns                   42.5%     36.8%  ███████████
+  San Antonio Spurs              27.8%     22.0%  ██████
+  Dallas Mavericks               15.2%     10.9%  ███
+  Cleveland Cavaliers            26.3%      6.4%  █
+  Chicago Bulls                  22.9%      5.9%  █
+  Houston Rockets                 8.4%      5.8%  █
+  Miami Heat                     11.5%      2.4%  
+  Utah Jazz                       3.8%      2.1%  
+  Detroit Pistons                11.0%      1.7%  
+  Toronto Raptors                10.4%      1.7%  
+  Orlando Magic                   8.0%      1.6%  
+  New Jersey Nets                 8.8%      1.6%  
+  Golden State Warriors           1.2%      0.5%  
+  Denver Nuggets                  0.7%      0.3%  
+  Los Angeles Lakers              0.5%      0.2%  
+  Washington Wizards              1.1%      0.1%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2007-08
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 86
+  Model accuracy   : 0.663
+  Baseline (seed)  : 0.651  (+0.012 vs baseline)
+  Log-loss         : 0.595
+  Brier score      : 0.205
+
+  Predicted bracket (2007-08):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Los Angeles Lakers vs (8) Denver Nuggets          → Los Angeles Lakers (86%)
+    (2) New Orleans Hornets vs (7) Dallas Mavericks        → New Orleans Hornets (70%)
+    (3) San Antonio Spurs vs (6) Phoenix Suns            → Phoenix Suns (72%)
+    (4) Utah Jazz vs (5) Houston Rockets         → Utah Jazz (69%)
+
+  Semifinals
+    Los Angeles Lakers vs Utah Jazz                   → Los Angeles Lakers (63%)
+    New Orleans Hornets vs Phoenix Suns                → Phoenix Suns (60%)
+
+  Conference Finals
+    Los Angeles Lakers vs Phoenix Suns                → Phoenix Suns (56%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Boston Celtics vs (8) Atlanta Hawks           → Boston Celtics (98%)
+    (2) Detroit Pistons vs (7) Philadelphia 76ers      → Detroit Pistons (73%)
+    (3) Orlando Magic vs (6) Toronto Raptors         → Orlando Magic (80%)
+    (4) Cleveland Cavaliers vs (5) Washington Wizards      → Cleveland Cavaliers (60%)
+
+  Semifinals
+    Boston Celtics vs Cleveland Cavaliers         → Boston Celtics (92%)
+    Detroit Pistons vs Orlando Magic               → Orlando Magic (69%)
+
+  Conference Finals
+    Boston Celtics vs Orlando Magic               → Boston Celtics (61%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Boston Celtics vs Phoenix Suns                → Boston Celtics (58%)
+
+  ★  PREDICTED CHAMPION: Boston Celtics (58% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Boston Celtics                 64.4%     45.6%  █████████████
+  Phoenix Suns                   28.5%     14.0%  ████
+  Orlando Magic                  25.8%     13.7%  ████
+  Los Angeles Lakers             29.2%      9.3%  ██
+  New Orleans Hornets            15.6%      5.6%  █
+  Utah Jazz                      13.8%      5.2%  █
+  Detroit Pistons                 5.5%      2.1%  
+  San Antonio Spurs               5.6%      1.7%  
+  Houston Rockets                 4.2%      1.2%  
+  Toronto Raptors                 2.3%      0.7%  
+  Dallas Mavericks                2.1%      0.4%  
+  Denver Nuggets                  1.0%      0.2%  
+  Cleveland Cavaliers             1.0%      0.1%  
+  Philadelphia 76ers              0.5%      0.1%  
+  Washington Wizards              0.4%      0.0%  
+  Atlanta Hawks                   0.1%      0.0%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2008-09
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 85
+  Model accuracy   : 0.729
+  Baseline (seed)  : 0.612  (+0.118 vs baseline)
+  Log-loss         : 0.617
+  Brier score      : 0.213
+
+  Predicted bracket (2008-09):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Los Angeles Lakers vs (8) Utah Jazz               → Los Angeles Lakers (82%)
+    (2) Denver Nuggets vs (7) New Orleans Hornets     → Denver Nuggets (54%)
+    (3) San Antonio Spurs vs (6) Dallas Mavericks        → San Antonio Spurs (73%)
+    (4) Portland Trail Blazers vs (5) Houston Rockets         → Portland Trail Blazers (64%)
+
+  Semifinals
+    Los Angeles Lakers vs Portland Trail Blazers      → Portland Trail Blazers (52%)
+    Denver Nuggets vs San Antonio Spurs           → San Antonio Spurs (73%)
+
+  Conference Finals
+    San Antonio Spurs vs Portland Trail Blazers      → San Antonio Spurs (55%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Cleveland Cavaliers vs (8) Detroit Pistons         → Cleveland Cavaliers (94%)
+    (2) Boston Celtics vs (7) Chicago Bulls           → Boston Celtics (96%)
+    (3) Orlando Magic vs (6) Philadelphia 76ers      → Orlando Magic (96%)
+    (4) Atlanta Hawks vs (5) Miami Heat              → Atlanta Hawks (65%)
+
+  Semifinals
+    Cleveland Cavaliers vs Atlanta Hawks               → Cleveland Cavaliers (91%)
+    Boston Celtics vs Orlando Magic               → Boston Celtics (64%)
+
+  Conference Finals
+    Cleveland Cavaliers vs Boston Celtics              → Boston Celtics (50%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Boston Celtics vs San Antonio Spurs           → Boston Celtics (67%)
+
+  ★  PREDICTED CHAMPION: Boston Celtics (67% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Cleveland Cavaliers            44.3%     30.4%  █████████
+  Boston Celtics                 35.2%     24.7%  ███████
+  Orlando Magic                  18.7%     12.1%  ███
+  San Antonio Spurs              31.2%     11.8%  ███
+  Los Angeles Lakers             28.0%      9.0%  ██
+  Portland Trail Blazers         21.3%      7.9%  ██
+  Houston Rockets                 5.1%      1.2%  
+  Dallas Mavericks                4.6%      1.0%  
+  Denver Nuggets                  5.4%      0.9%  
+  New Orleans Hornets             3.3%      0.5%  
+  Atlanta Hawks                   1.0%      0.2%  
+  Utah Jazz                       1.0%      0.1%  
+  Miami Heat                      0.6%      0.1%  
+  Detroit Pistons                 0.2%      0.0%  
+  Chicago Bulls                   0.1%      0.0%  
+  Philadelphia 76ers              0.0%      0.0%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2009-10
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 82
+  Model accuracy   : 0.695
+  Baseline (seed)  : 0.634  (+0.061 vs baseline)
+  Log-loss         : 0.600
+  Brier score      : 0.206
+
+  Predicted bracket (2009-10):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Los Angeles Lakers vs (8) Oklahoma City Thunder   → Los Angeles Lakers (69%)
+    (2) Dallas Mavericks vs (7) San Antonio Spurs       → San Antonio Spurs (63%)
+    (3) Phoenix Suns vs (6) Portland Trail Blazers  → Phoenix Suns (76%)
+    (4) Denver Nuggets vs (5) Utah Jazz               → Utah Jazz (66%)
+
+  Semifinals
+    Los Angeles Lakers vs Utah Jazz                   → Utah Jazz (55%)
+    Phoenix Suns vs San Antonio Spurs           → Phoenix Suns (65%)
+
+  Conference Finals
+    Phoenix Suns vs Utah Jazz                   → Phoenix Suns (62%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Cleveland Cavaliers vs (8) Chicago Bulls           → Cleveland Cavaliers (95%)
+    (2) Orlando Magic vs (7) Charlotte Bobcats       → Orlando Magic (95%)
+    (3) Atlanta Hawks vs (6) Milwaukee Bucks         → Atlanta Hawks (72%)
+    (4) Boston Celtics vs (5) Miami Heat              → Boston Celtics (75%)
+
+  Semifinals
+    Cleveland Cavaliers vs Boston Celtics              → Cleveland Cavaliers (80%)
+    Orlando Magic vs Atlanta Hawks               → Orlando Magic (89%)
+
+  Conference Finals
+    Cleveland Cavaliers vs Orlando Magic               → Orlando Magic (51%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Orlando Magic vs Phoenix Suns                → Orlando Magic (68%)
+
+  ★  PREDICTED CHAMPION: Orlando Magic (68% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Orlando Magic                  50.8%     38.5%  ███████████
+  Cleveland Cavaliers            41.9%     30.1%  █████████
+  Phoenix Suns                   35.2%     13.1%  ███
+  Utah Jazz                      19.9%      6.0%  █
+  San Antonio Spurs              16.2%      5.1%  █
+  Los Angeles Lakers             14.6%      2.7%  
+  Boston Celtics                  3.3%      1.2%  
+  Atlanta Hawks                   2.6%      0.9%  
+  Dallas Mavericks                5.0%      0.8%  
+  Portland Trail Blazers          3.4%      0.5%  
+  Denver Nuggets                  3.2%      0.4%  
+  Oklahoma City Thunder           2.4%      0.3%  
+  Miami Heat                      0.7%      0.2%  
+  Milwaukee Bucks                 0.4%      0.1%  
+  Charlotte Bobcats               0.2%      0.0%  
+  Chicago Bulls                   0.1%      0.0%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2010-11
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 81
+  Model accuracy   : 0.654
+  Baseline (seed)  : 0.580  (+0.074 vs baseline)
+  Log-loss         : 0.613
+  Brier score      : 0.213
+
+  Predicted bracket (2010-11):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) San Antonio Spurs vs (8) Memphis Grizzlies       → San Antonio Spurs (83%)
+    (2) Los Angeles Lakers vs (7) New Orleans Hornets     → Los Angeles Lakers (83%)
+    (3) Dallas Mavericks vs (6) Portland Trail Blazers  → Dallas Mavericks (85%)
+    (4) Oklahoma City Thunder vs (5) Denver Nuggets          → Denver Nuggets (57%)
+
+  Semifinals
+    San Antonio Spurs vs Denver Nuggets              → San Antonio Spurs (69%)
+    Los Angeles Lakers vs Dallas Mavericks            → Los Angeles Lakers (52%)
+
+  Conference Finals
+    San Antonio Spurs vs Los Angeles Lakers          → San Antonio Spurs (66%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Chicago Bulls vs (8) Indiana Pacers          → Chicago Bulls (94%)
+    (2) Miami Heat vs (7) Philadelphia 76ers      → Miami Heat (90%)
+    (3) Boston Celtics vs (6) New York Knicks         → Boston Celtics (89%)
+    (4) Orlando Magic vs (5) Atlanta Hawks           → Orlando Magic (83%)
+
+  Semifinals
+    Chicago Bulls vs Orlando Magic               → Chicago Bulls (51%)
+    Miami Heat vs Boston Celtics              → Miami Heat (56%)
+
+  Conference Finals
+    Chicago Bulls vs Miami Heat                  → Chicago Bulls (69%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Chicago Bulls vs San Antonio Spurs           → Chicago Bulls (54%)
+
+  ★  PREDICTED CHAMPION: Chicago Bulls (54% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Chicago Bulls                  36.5%     22.5%  ██████
+  San Antonio Spurs              40.4%     21.2%  ██████
+  Orlando Magic                  24.0%     13.8%  ████
+  Miami Heat                     21.9%     11.7%  ███
+  Dallas Mavericks               23.3%     11.2%  ███
+  Los Angeles Lakers             21.2%      8.1%  ██
+  Boston Celtics                 16.3%      7.2%  ██
+  Denver Nuggets                  9.2%      3.0%  
+  Oklahoma City Thunder           2.3%      0.5%  
+  Memphis Grizzlies               1.7%      0.3%  
+  New Orleans Hornets             1.2%      0.2%  
+  Atlanta Hawks                   0.6%      0.1%  
+  Philadelphia 76ers              0.5%      0.1%  
+  Portland Trail Blazers          0.6%      0.1%  
+  New York Knicks                 0.3%      0.0%  
+  Indiana Pacers                  0.1%      0.0%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2012-13
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 85
+  Model accuracy   : 0.600
+  Baseline (seed)  : 0.588  (+0.012 vs baseline)
+  Log-loss         : 0.649
+  Brier score      : 0.228
+
+  Predicted bracket (2012-13):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Oklahoma City Thunder vs (8) Houston Rockets         → Oklahoma City Thunder (70%)
+    (2) San Antonio Spurs vs (7) Los Angeles Lakers      → San Antonio Spurs (75%)
+    (3) Denver Nuggets vs (6) Golden State Warriors   → Denver Nuggets (80%)
+    (4) Los Angeles Clippers vs (5) Memphis Grizzlies       → Los Angeles Clippers (91%)
+
+  Semifinals
+    Oklahoma City Thunder vs Los Angeles Clippers        → Oklahoma City Thunder (56%)
+    San Antonio Spurs vs Denver Nuggets              → San Antonio Spurs (58%)
+
+  Conference Finals
+    Oklahoma City Thunder vs San Antonio Spurs           → Oklahoma City Thunder (62%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Miami Heat vs (8) Milwaukee Bucks         → Miami Heat (98%)
+    (2) New York Knicks vs (7) Boston Celtics          → New York Knicks (86%)
+    (3) Indiana Pacers vs (6) Atlanta Hawks           → Atlanta Hawks (55%)
+    (4) Brooklyn Nets vs (5) Chicago Bulls           → Brooklyn Nets (75%)
+
+  Semifinals
+    Miami Heat vs Brooklyn Nets               → Miami Heat (89%)
+    New York Knicks vs Atlanta Hawks               → New York Knicks (62%)
+
+  Conference Finals
+    Miami Heat vs New York Knicks             → Miami Heat (83%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Miami Heat vs Oklahoma City Thunder       → Miami Heat (67%)
+
+  ★  PREDICTED CHAMPION: Miami Heat (67% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Miami Heat                     76.2%     56.2%  ████████████████
+  Oklahoma City Thunder          26.9%     11.7%  ███
+  Los Angeles Clippers           26.1%     11.0%  ███
+  San Antonio Spurs              21.0%      6.1%  █
+  Denver Nuggets                 16.4%      5.6%  █
+  New York Knicks                12.9%      4.2%  █
+  Houston Rockets                 5.6%      1.8%  
+  Atlanta Hawks                   4.1%      1.1%  
+  Brooklyn Nets                   4.0%      0.9%  
+  Los Angeles Lakers              2.5%      0.6%  
+  Indiana Pacers                  2.4%      0.5%  
+  Golden State Warriors           1.1%      0.2%  
+  Memphis Grizzlies               0.3%      0.0%  
+  Boston Celtics                  0.3%      0.0%  
+  Chicago Bulls                   0.2%      0.0%  
+  Milwaukee Bucks                 0.1%      0.0%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2013-14
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 89
+  Model accuracy   : 0.562
+  Baseline (seed)  : 0.584  (-0.022 vs baseline)
+  Log-loss         : 0.666
+  Brier score      : 0.237
+
+  Predicted bracket (2013-14):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) San Antonio Spurs vs (8) Dallas Mavericks        → San Antonio Spurs (91%)
+    (2) Oklahoma City Thunder vs (7) Memphis Grizzlies       → Oklahoma City Thunder (77%)
+    (3) Los Angeles Clippers vs (6) Golden State Warriors   → Golden State Warriors (51%)
+    (4) Houston Rockets vs (5) Portland Trail Blazers  → Houston Rockets (81%)
+
+  Semifinals
+    San Antonio Spurs vs Houston Rockets             → San Antonio Spurs (64%)
+    Oklahoma City Thunder vs Golden State Warriors       → Oklahoma City Thunder (51%)
+
+  Conference Finals
+    San Antonio Spurs vs Oklahoma City Thunder       → San Antonio Spurs (56%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Indiana Pacers vs (8) Atlanta Hawks           → Indiana Pacers (70%)
+    (2) Miami Heat vs (7) Charlotte Bobcats       → Miami Heat (94%)
+    (3) Toronto Raptors vs (6) Brooklyn Nets           → Toronto Raptors (67%)
+    (4) Chicago Bulls vs (5) Washington Wizards      → Washington Wizards (64%)
+
+  Semifinals
+    Indiana Pacers vs Washington Wizards          → Indiana Pacers (67%)
+    Miami Heat vs Toronto Raptors             → Miami Heat (79%)
+
+  Conference Finals
+    Indiana Pacers vs Miami Heat                  → Miami Heat (62%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    San Antonio Spurs vs Miami Heat                  → San Antonio Spurs (67%)
+
+  ★  PREDICTED CHAMPION: San Antonio Spurs (67% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  San Antonio Spurs              40.6%     30.5%  █████████
+  Miami Heat                     52.0%     22.8%  ██████
+  Houston Rockets                18.2%     11.8%  ███
+  Oklahoma City Thunder          19.3%     11.5%  ███
+  Indiana Pacers                 22.3%      6.8%  ██
+  Golden State Warriors           9.9%      5.6%  █
+  Los Angeles Clippers            8.5%      4.9%  █
+  Washington Wizards              9.0%      2.0%  
+  Toronto Raptors                 7.2%      1.4%  
+  Portland Trail Blazers          1.4%      0.6%  
+  Atlanta Hawks                   3.2%      0.5%  
+  Memphis Grizzlies               1.3%      0.5%  
+  Chicago Bulls                   2.9%      0.4%  
+  Brooklyn Nets                   2.6%      0.3%  
+  Dallas Mavericks                0.7%      0.3%  
+  Charlotte Bobcats               0.7%      0.1%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2014-15
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 81
+  Model accuracy   : 0.642
+  Baseline (seed)  : 0.605  (+0.037 vs baseline)
+  Log-loss         : 0.630
+  Brier score      : 0.221
+
+  Predicted bracket (2014-15):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Golden State Warriors vs (8) New Orleans Pelicans    → Golden State Warriors (93%)
+    (2) Houston Rockets vs (7) Dallas Mavericks        → Houston Rockets (65%)
+    (3) Los Angeles Clippers vs (6) San Antonio Spurs       → Los Angeles Clippers (58%)
+    (4) Portland Trail Blazers vs (5) Memphis Grizzlies       → Portland Trail Blazers (60%)
+
+  Semifinals
+    Golden State Warriors vs Portland Trail Blazers      → Golden State Warriors (83%)
+    Houston Rockets vs Los Angeles Clippers        → Los Angeles Clippers (67%)
+
+  Conference Finals
+    Golden State Warriors vs Los Angeles Clippers        → Golden State Warriors (73%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Atlanta Hawks vs (8) Brooklyn Nets           → Atlanta Hawks (94%)
+    (2) Cleveland Cavaliers vs (7) Boston Celtics          → Cleveland Cavaliers (76%)
+    (3) Chicago Bulls vs (6) Milwaukee Bucks         → Chicago Bulls (61%)
+    (4) Toronto Raptors vs (5) Washington Wizards      → Toronto Raptors (62%)
+
+  Semifinals
+    Atlanta Hawks vs Toronto Raptors             → Atlanta Hawks (75%)
+    Cleveland Cavaliers vs Chicago Bulls               → Cleveland Cavaliers (80%)
+
+  Conference Finals
+    Atlanta Hawks vs Cleveland Cavaliers         → Atlanta Hawks (66%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Atlanta Hawks vs Golden State Warriors       → Golden State Warriors (73%)
+
+  ★  PREDICTED CHAMPION: Golden State Warriors (73% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Golden State Warriors          64.8%     54.0%  ████████████████
+  Atlanta Hawks                  49.8%     15.8%  ████
+  Los Angeles Clippers           14.4%      9.3%  ██
+  Cleveland Cavaliers            26.0%      6.8%  ██
+  San Antonio Spurs               8.9%      5.4%  █
+  Portland Trail Blazers          5.6%      2.8%  
+  Houston Rockets                 3.3%      1.4%  
+  Washington Wizards              5.2%      1.0%  
+  Toronto Raptors                 6.9%      1.0%  
+  Chicago Bulls                   5.5%      0.7%  
+  Dallas Mavericks                1.4%      0.5%  
+  Milwaukee Bucks                 3.8%      0.5%  
+  Boston Celtics                  2.5%      0.3%  
+  Memphis Grizzlies               0.8%      0.3%  
+  New Orleans Pelicans            0.8%      0.3%  
+  Brooklyn Nets                   0.3%      0.0%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2015-16
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 86
+  Model accuracy   : 0.709
+  Baseline (seed)  : 0.640  (+0.070 vs baseline)
+  Log-loss         : 0.584
+  Brier score      : 0.200
+
+  Predicted bracket (2015-16):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Golden State Warriors vs (8) Houston Rockets         → Golden State Warriors (98%)
+    (2) San Antonio Spurs vs (7) Memphis Grizzlies       → San Antonio Spurs (99%)
+    (3) Oklahoma City Thunder vs (6) Dallas Mavericks        → Oklahoma City Thunder (93%)
+    (4) LA Clippers vs (5) Portland Trail Blazers  → LA Clippers (77%)
+
+  Semifinals
+    Golden State Warriors vs LA Clippers                 → Golden State Warriors (89%)
+    San Antonio Spurs vs Oklahoma City Thunder       → San Antonio Spurs (71%)
+
+  Conference Finals
+    Golden State Warriors vs San Antonio Spurs           → Golden State Warriors (68%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Cleveland Cavaliers vs (8) Detroit Pistons         → Cleveland Cavaliers (73%)
+    (2) Toronto Raptors vs (7) Indiana Pacers          → Toronto Raptors (67%)
+    (3) Miami Heat vs (6) Charlotte Hornets       → Miami Heat (60%)
+    (4) Atlanta Hawks vs (5) Boston Celtics          → Atlanta Hawks (82%)
+
+  Semifinals
+    Cleveland Cavaliers vs Atlanta Hawks               → Cleveland Cavaliers (80%)
+    Toronto Raptors vs Miami Heat                  → Toronto Raptors (56%)
+
+  Conference Finals
+    Cleveland Cavaliers vs Toronto Raptors             → Cleveland Cavaliers (70%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Cleveland Cavaliers vs Golden State Warriors       → Golden State Warriors (88%)
+
+  ★  PREDICTED CHAMPION: Golden State Warriors (88% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Golden State Warriors          66.3%     61.0%  ██████████████████
+  San Antonio Spurs              27.2%     21.9%  ██████
+  Cleveland Cavaliers            42.7%      7.2%  ██
+  Oklahoma City Thunder           4.3%      2.7%  
+  Atlanta Hawks                  15.1%      2.0%  
+  Miami Heat                     12.8%      1.6%  
+  Toronto Raptors                14.1%      1.4%  
+  LA Clippers                     2.0%      1.0%  
+  Charlotte Hornets               6.6%      0.6%  
+  Detroit Pistons                 3.8%      0.3%  
+  Indiana Pacers                  3.4%      0.3%  
+  Boston Celtics                  1.4%      0.1%  
+  Portland Trail Blazers          0.1%      0.0%  
+  Houston Rockets                 0.1%      0.0%  
+  Dallas Mavericks                0.0%      0.0%  
+  Memphis Grizzlies               0.0%      0.0%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2016-17
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 79
+  Model accuracy   : 0.633
+  Baseline (seed)  : 0.709  (-0.076 vs baseline)
+  Log-loss         : 0.584
+  Brier score      : 0.200
+
+  Predicted bracket (2016-17):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Golden State Warriors vs (8) Portland Trail Blazers  → Golden State Warriors (96%)
+    (2) San Antonio Spurs vs (7) Memphis Grizzlies       → San Antonio Spurs (88%)
+    (3) Houston Rockets vs (6) Oklahoma City Thunder   → Houston Rockets (81%)
+    (4) LA Clippers vs (5) Utah Jazz               → LA Clippers (56%)
+
+  Semifinals
+    Golden State Warriors vs LA Clippers                 → Golden State Warriors (83%)
+    San Antonio Spurs vs Houston Rockets             → San Antonio Spurs (64%)
+
+  Conference Finals
+    Golden State Warriors vs San Antonio Spurs           → Golden State Warriors (73%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Boston Celtics vs (8) Chicago Bulls           → Boston Celtics (67%)
+    (2) Cleveland Cavaliers vs (7) Indiana Pacers          → Cleveland Cavaliers (84%)
+    (3) Toronto Raptors vs (6) Milwaukee Bucks         → Toronto Raptors (69%)
+    (4) Washington Wizards vs (5) Atlanta Hawks           → Washington Wizards (73%)
+
+  Semifinals
+    Boston Celtics vs Washington Wizards          → Boston Celtics (51%)
+    Cleveland Cavaliers vs Toronto Raptors             → Cleveland Cavaliers (73%)
+
+  Conference Finals
+    Boston Celtics vs Cleveland Cavaliers         → Cleveland Cavaliers (71%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Golden State Warriors vs Cleveland Cavaliers         → Golden State Warriors (81%)
+
+  ★  PREDICTED CHAMPION: Golden State Warriors (81% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Golden State Warriors          60.0%     51.5%  ███████████████
+  San Antonio Spurs              20.2%     13.9%  ████
+  Cleveland Cavaliers            44.3%     12.8%  ███
+  Houston Rockets                10.2%      6.8%  ██
+  Washington Wizards             15.8%      2.9%  
+  Utah Jazz                       4.1%      2.7%  
+  Toronto Raptors                13.5%      2.6%  
+  LA Clippers                     4.4%      2.6%  
+  Boston Celtics                 14.0%      2.3%  
+  Milwaukee Bucks                 4.6%      0.7%  
+  Atlanta Hawks                   3.2%      0.4%  
+  Chicago Bulls                   2.6%      0.3%  
+  Oklahoma City Thunder           0.7%      0.2%  
+  Indiana Pacers                  2.0%      0.2%  
+  Portland Trail Blazers          0.3%      0.1%  
+  Memphis Grizzlies               0.1%      0.0%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2017-18
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 82
+  Model accuracy   : 0.744
+  Baseline (seed)  : 0.585  (+0.159 vs baseline)
+  Log-loss         : 0.565
+  Brier score      : 0.190
+
+  Predicted bracket (2017-18):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Houston Rockets vs (8) Minnesota Timberwolves  → Houston Rockets (91%)
+    (2) Golden State Warriors vs (7) San Antonio Spurs       → Golden State Warriors (89%)
+    (3) Portland Trail Blazers vs (6) New Orleans Pelicans    → New Orleans Pelicans (56%)
+    (4) Oklahoma City Thunder vs (5) Utah Jazz               → Utah Jazz (51%)
+
+  Semifinals
+    Houston Rockets vs Utah Jazz                   → Houston Rockets (79%)
+    Golden State Warriors vs New Orleans Pelicans        → Golden State Warriors (84%)
+
+  Conference Finals
+    Houston Rockets vs Golden State Warriors       → Houston Rockets (50%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Toronto Raptors vs (8) Washington Wizards      → Toronto Raptors (79%)
+    (2) Boston Celtics vs (7) Milwaukee Bucks         → Boston Celtics (69%)
+    (3) Philadelphia 76ers vs (6) Miami Heat              → Philadelphia 76ers (75%)
+    (4) Cleveland Cavaliers vs (5) Indiana Pacers          → Cleveland Cavaliers (51%)
+
+  Semifinals
+    Toronto Raptors vs Cleveland Cavaliers         → Toronto Raptors (72%)
+    Boston Celtics vs Philadelphia 76ers          → Philadelphia 76ers (59%)
+
+  Conference Finals
+    Toronto Raptors vs Philadelphia 76ers          → Toronto Raptors (54%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Toronto Raptors vs Houston Rockets             → Houston Rockets (51%)
+
+  ★  PREDICTED CHAMPION: Houston Rockets (51% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Golden State Warriors          44.2%     30.9%  █████████
+  Houston Rockets                40.6%     26.5%  ███████
+  Toronto Raptors                38.3%     17.5%  █████
+  Philadelphia 76ers             29.1%     12.2%  ███
+  Boston Celtics                 12.6%      3.3%  
+  Utah Jazz                       4.4%      2.0%  
+  New Orleans Pelicans            3.9%      1.5%  
+  Cleveland Cavaliers             6.6%      1.3%  
+  Oklahoma City Thunder           3.1%      1.0%  
+  Indiana Pacers                  4.8%      1.0%  
+  Miami Heat                      4.2%      0.9%  
+  Portland Trail Blazers          2.1%      0.6%  
+  Washington Wizards              2.7%      0.5%  
+  San Antonio Spurs               1.1%      0.3%  
+  Milwaukee Bucks                 1.6%      0.2%  
+  Minnesota Timberwolves          0.5%      0.1%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2018-19
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 82
+  Model accuracy   : 0.646
+  Baseline (seed)  : 0.671  (-0.024 vs baseline)
+  Log-loss         : 0.653
+  Brier score      : 0.229
+
+  Predicted bracket (2018-19):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Golden State Warriors vs (8) LA Clippers             → Golden State Warriors (94%)
+    (2) Denver Nuggets vs (7) San Antonio Spurs       → Denver Nuggets (58%)
+    (3) Portland Trail Blazers vs (6) Oklahoma City Thunder   → Oklahoma City Thunder (54%)
+    (4) Houston Rockets vs (5) Utah Jazz               → Utah Jazz (68%)
+
+  Semifinals
+    Golden State Warriors vs Utah Jazz                   → Golden State Warriors (66%)
+    Denver Nuggets vs Oklahoma City Thunder       → Denver Nuggets (64%)
+
+  Conference Finals
+    Golden State Warriors vs Denver Nuggets              → Golden State Warriors (77%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Milwaukee Bucks vs (8) Detroit Pistons         → Milwaukee Bucks (96%)
+    (2) Toronto Raptors vs (7) Orlando Magic           → Toronto Raptors (72%)
+    (3) Philadelphia 76ers vs (6) Brooklyn Nets           → Philadelphia 76ers (71%)
+    (4) Boston Celtics vs (5) Indiana Pacers          → Boston Celtics (68%)
+
+  Semifinals
+    Milwaukee Bucks vs Boston Celtics              → Milwaukee Bucks (82%)
+    Toronto Raptors vs Philadelphia 76ers          → Toronto Raptors (73%)
+
+  Conference Finals
+    Milwaukee Bucks vs Toronto Raptors             → Milwaukee Bucks (77%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Milwaukee Bucks vs Golden State Warriors       → Milwaukee Bucks (55%)
+
+  ★  PREDICTED CHAMPION: Milwaukee Bucks (55% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Milwaukee Bucks                62.7%     40.6%  ████████████
+  Golden State Warriors          52.7%     27.6%  ████████
+  Toronto Raptors                17.2%      9.8%  ██
+  Utah Jazz                      16.2%      7.0%  ██
+  Denver Nuggets                 11.7%      3.8%  █
+  Philadelphia 76ers              7.2%      2.3%  
+  Boston Celtics                  6.4%      2.1%  
+  Portland Trail Blazers          6.0%      1.8%  
+  San Antonio Spurs               5.1%      1.4%  
+  Oklahoma City Thunder           4.6%      1.1%  
+  Houston Rockets                 3.4%      0.8%  
+  Indiana Pacers                  2.5%      0.7%  
+  Orlando Magic                   2.7%      0.7%  
+  Brooklyn Nets                   1.1%      0.2%  
+  LA Clippers                     0.3%      0.0%  
+  Detroit Pistons                 0.3%      0.0%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2020-21
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 85
+  Model accuracy   : 0.635
+  Baseline (seed)  : 0.600  (+0.035 vs baseline)
+  Log-loss         : 0.658
+  Brier score      : 0.233
+
+  Predicted bracket (2020-21):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Utah Jazz vs (8) Memphis Grizzlies       → Utah Jazz (95%)
+    (2) Phoenix Suns vs (7) Los Angeles Lakers      → Phoenix Suns (74%)
+    (3) Denver Nuggets vs (6) Portland Trail Blazers  → Denver Nuggets (84%)
+    (4) LA Clippers vs (5) Dallas Mavericks        → LA Clippers (73%)
+
+  Semifinals
+    Utah Jazz vs LA Clippers                 → Utah Jazz (71%)
+    Phoenix Suns vs Denver Nuggets              → Phoenix Suns (51%)
+
+  Conference Finals
+    Utah Jazz vs Phoenix Suns                → Utah Jazz (71%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Philadelphia 76ers vs (8) Washington Wizards      → Philadelphia 76ers (90%)
+    (2) Brooklyn Nets vs (7) Boston Celtics          → Brooklyn Nets (87%)
+    (3) Milwaukee Bucks vs (6) Miami Heat              → Milwaukee Bucks (87%)
+    (4) New York Knicks vs (5) Atlanta Hawks           → New York Knicks (66%)
+
+  Semifinals
+    Philadelphia 76ers vs New York Knicks             → Philadelphia 76ers (69%)
+    Brooklyn Nets vs Milwaukee Bucks             → Milwaukee Bucks (58%)
+
+  Conference Finals
+    Philadelphia 76ers vs Milwaukee Bucks             → Milwaukee Bucks (67%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Utah Jazz vs Milwaukee Bucks             → Utah Jazz (62%)
+
+  ★  PREDICTED CHAMPION: Utah Jazz (62% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Utah Jazz                      52.5%     37.2%  ███████████
+  Milwaukee Bucks                39.5%     17.4%  █████
+  Brooklyn Nets                  27.6%     11.8%  ███
+  Phoenix Suns                   14.4%      8.9%  ██
+  LA Clippers                    13.7%      7.8%  ██
+  Denver Nuggets                 15.0%      7.2%  ██
+  Philadelphia 76ers             23.0%      6.7%  ██
+  Los Angeles Lakers              2.2%      0.8%  
+  New York Knicks                 4.4%      0.7%  
+  Atlanta Hawks                   2.4%      0.5%  
+  Dallas Mavericks                1.4%      0.4%  
+  Boston Celtics                  1.4%      0.3%  
+  Miami Heat                      1.4%      0.2%  
+  Portland Trail Blazers          0.5%      0.1%  
+  Memphis Grizzlies               0.3%      0.1%  
+  Washington Wizards              0.3%      0.0%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2021-22
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 87
+  Model accuracy   : 0.621
+  Baseline (seed)  : 0.621  (+0.000 vs baseline)
+  Log-loss         : 0.650
+  Brier score      : 0.229
+
+  Predicted bracket (2021-22):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Phoenix Suns vs (8) New Orleans Pelicans    → Phoenix Suns (89%)
+    (2) Memphis Grizzlies vs (7) Minnesota Timberwolves  → Memphis Grizzlies (70%)
+    (3) Golden State Warriors vs (6) Denver Nuggets          → Golden State Warriors (59%)
+    (4) Dallas Mavericks vs (5) Utah Jazz               → Utah Jazz (69%)
+
+  Semifinals
+    Phoenix Suns vs Utah Jazz                   → Utah Jazz (53%)
+    Memphis Grizzlies vs Golden State Warriors       → Golden State Warriors (51%)
+
+  Conference Finals
+    Golden State Warriors vs Utah Jazz                   → Golden State Warriors (51%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Miami Heat vs (8) Atlanta Hawks           → Miami Heat (74%)
+    (2) Boston Celtics vs (7) Brooklyn Nets           → Boston Celtics (81%)
+    (3) Milwaukee Bucks vs (6) Chicago Bulls           → Milwaukee Bucks (83%)
+    (4) Philadelphia 76ers vs (5) Toronto Raptors         → Toronto Raptors (51%)
+
+  Semifinals
+    Miami Heat vs Toronto Raptors             → Miami Heat (78%)
+    Boston Celtics vs Milwaukee Bucks             → Boston Celtics (63%)
+
+  Conference Finals
+    Miami Heat vs Boston Celtics              → Boston Celtics (58%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Boston Celtics vs Golden State Warriors       → Boston Celtics (50%)
+
+  ★  PREDICTED CHAMPION: Boston Celtics (50% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Phoenix Suns                   31.4%     19.6%  █████
+  Boston Celtics                 35.1%     17.0%  █████
+  Utah Jazz                      23.7%     14.6%  ████
+  Miami Heat                     28.6%     12.1%  ███
+  Golden State Warriors          18.0%     11.8%  ███
+  Milwaukee Bucks                19.8%      7.9%  ██
+  Memphis Grizzlies              13.9%      7.3%  ██
+  Denver Nuggets                  8.0%      3.7%  █
+  Atlanta Hawks                   5.1%      1.5%  
+  Dallas Mavericks                3.0%      1.3%  
+  Philadelphia 76ers              3.6%      0.8%  
+  Brooklyn Nets                   2.9%      0.8%  
+  Toronto Raptors                 3.1%      0.6%  
+  Minnesota Timberwolves          1.6%      0.5%  
+  Chicago Bulls                   1.9%      0.4%  
+  New Orleans Pelicans            0.4%      0.1%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2022-23
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 84
+  Model accuracy   : 0.595
+  Baseline (seed)  : 0.548  (+0.048 vs baseline)
+  Log-loss         : 0.702
+  Brier score      : 0.249
+
+  Predicted bracket (2022-23):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Denver Nuggets vs (8) Minnesota Timberwolves  → Denver Nuggets (79%)
+    (2) Memphis Grizzlies vs (7) Los Angeles Lakers      → Memphis Grizzlies (65%)
+    (3) Sacramento Kings vs (6) Golden State Warriors   → Golden State Warriors (64%)
+    (4) Phoenix Suns vs (5) LA Clippers             → Phoenix Suns (53%)
+
+  Semifinals
+    Denver Nuggets vs Phoenix Suns                → Denver Nuggets (80%)
+    Memphis Grizzlies vs Golden State Warriors       → Golden State Warriors (61%)
+
+  Conference Finals
+    Denver Nuggets vs Golden State Warriors       → Denver Nuggets (57%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Milwaukee Bucks vs (8) Miami Heat              → Milwaukee Bucks (93%)
+    (2) Boston Celtics vs (7) Atlanta Hawks           → Boston Celtics (92%)
+    (3) Philadelphia 76ers vs (6) Brooklyn Nets           → Philadelphia 76ers (71%)
+    (4) Cleveland Cavaliers vs (5) New York Knicks         → Cleveland Cavaliers (55%)
+
+  Semifinals
+    Milwaukee Bucks vs Cleveland Cavaliers         → Milwaukee Bucks (67%)
+    Boston Celtics vs Philadelphia 76ers          → Boston Celtics (79%)
+
+  Conference Finals
+    Milwaukee Bucks vs Boston Celtics              → Milwaukee Bucks (51%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Milwaukee Bucks vs Denver Nuggets              → Milwaukee Bucks (55%)
+
+  ★  PREDICTED CHAMPION: Milwaukee Bucks (55% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Boston Celtics                 41.7%     27.4%  ████████
+  Milwaukee Bucks                36.9%     23.0%  ██████
+  Denver Nuggets                 41.3%     20.2%  ██████
+  Golden State Warriors          22.9%     10.3%  ███
+  Memphis Grizzlies              11.9%      3.8%  █
+  Cleveland Cavaliers             7.6%      3.5%  █
+  Philadelphia 76ers              6.7%      3.1%  
+  Sacramento Kings                8.9%      3.0%  
+  New York Knicks                 4.3%      1.6%  
+  Phoenix Suns                    5.0%      1.1%  
+  LA Clippers                     4.5%      1.0%  
+  Brooklyn Nets                   2.2%      0.8%  
+  Minnesota Timberwolves          3.1%      0.7%  
+  Los Angeles Lakers              2.5%      0.5%  
+  Atlanta Hawks                   0.5%      0.1%  
+  Miami Heat                      0.1%      0.0%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2023-24
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 82
+  Model accuracy   : 0.671
+  Baseline (seed)  : 0.598  (+0.073 vs baseline)
+  Log-loss         : 0.648
+  Brier score      : 0.228
+
+  Predicted bracket (2023-24):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Oklahoma City Thunder vs (8) New Orleans Pelicans    → Oklahoma City Thunder (64%)
+    (2) Denver Nuggets vs (7) Los Angeles Lakers      → Denver Nuggets (80%)
+    (3) Minnesota Timberwolves vs (6) Phoenix Suns            → Phoenix Suns (56%)
+    (4) LA Clippers vs (5) Dallas Mavericks        → LA Clippers (65%)
+
+  Semifinals
+    Oklahoma City Thunder vs LA Clippers                 → Oklahoma City Thunder (64%)
+    Denver Nuggets vs Phoenix Suns                → Denver Nuggets (57%)
+
+  Conference Finals
+    Oklahoma City Thunder vs Denver Nuggets              → Oklahoma City Thunder (54%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Boston Celtics vs (8) Miami Heat              → Boston Celtics (96%)
+    (2) New York Knicks vs (7) Philadelphia 76ers      → New York Knicks (82%)
+    (3) Milwaukee Bucks vs (6) Indiana Pacers          → Indiana Pacers (54%)
+    (4) Cleveland Cavaliers vs (5) Orlando Magic           → Cleveland Cavaliers (64%)
+
+  Semifinals
+    Boston Celtics vs Cleveland Cavaliers         → Boston Celtics (84%)
+    New York Knicks vs Indiana Pacers              → Indiana Pacers (58%)
+
+  Conference Finals
+    Boston Celtics vs Indiana Pacers              → Boston Celtics (83%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Boston Celtics vs Oklahoma City Thunder       → Boston Celtics (76%)
+
+  ★  PREDICTED CHAMPION: Boston Celtics (76% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Boston Celtics                 68.1%     52.9%  ███████████████
+  Denver Nuggets                 24.4%      8.9%  ██
+  Oklahoma City Thunder          23.8%      8.6%  ██
+  Minnesota Timberwolves         13.9%      5.5%  █
+  Phoenix Suns                   13.3%      4.5%  █
+  Milwaukee Bucks                 7.6%      3.3%  
+  Indiana Pacers                  7.6%      3.1%  
+  LA Clippers                    10.4%      3.0%  
+  New York Knicks                 7.8%      2.9%  
+  New Orleans Pelicans            7.9%      2.5%  
+  Cleveland Cavaliers             5.9%      2.5%  
+  Orlando Magic                   2.3%      0.7%  
+  Dallas Mavericks                3.6%      0.7%  
+  Los Angeles Lakers              2.6%      0.7%  
+  Miami Heat                      0.4%      0.1%  
+  Philadelphia 76ers              0.3%      0.0%  
+  ==============================================================
+
+──────────────────────────────────────────────────────────────────────────
+  SEASON: 2024-25
+──────────────────────────────────────────────────────────────────────────
+  Games in holdout : 84
+  Model accuracy   : 0.571
+  Baseline (seed)  : 0.583  (-0.012 vs baseline)
+  Log-loss         : 0.684
+  Brier score      : 0.245
+
+  Predicted bracket (2024-25):
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Oklahoma City Thunder vs (8) Memphis Grizzlies       → Oklahoma City Thunder (78%)
+    (2) Houston Rockets vs (7) Golden State Warriors   → Houston Rockets (54%)
+    (3) Los Angeles Lakers vs (6) Minnesota Timberwolves  → Minnesota Timberwolves (57%)
+    (4) Denver Nuggets vs (5) LA Clippers             → Denver Nuggets (64%)
+
+  Semifinals
+    Oklahoma City Thunder vs Denver Nuggets              → Oklahoma City Thunder (53%)
+    Houston Rockets vs Minnesota Timberwolves      → Minnesota Timberwolves (57%)
+
+  Conference Finals
+    Oklahoma City Thunder vs Minnesota Timberwolves      → Oklahoma City Thunder (65%)
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) Cleveland Cavaliers vs (8) Miami Heat              → Cleveland Cavaliers (91%)
+    (2) Boston Celtics vs (7) Orlando Magic           → Boston Celtics (93%)
+    (3) New York Knicks vs (6) Detroit Pistons         → New York Knicks (51%)
+    (4) Indiana Pacers vs (5) Milwaukee Bucks         → Milwaukee Bucks (65%)
+
+  Semifinals
+    Cleveland Cavaliers vs Milwaukee Bucks             → Cleveland Cavaliers (78%)
+    Boston Celtics vs New York Knicks             → Boston Celtics (86%)
+
+  Conference Finals
+    Cleveland Cavaliers vs Boston Celtics              → Cleveland Cavaliers (61%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    Cleveland Cavaliers vs Oklahoma City Thunder       → Cleveland Cavaliers (68%)
+
+  ★  PREDICTED CHAMPION: Cleveland Cavaliers (68% to win Finals)
+
+  Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  Cleveland Cavaliers            47.1%     33.0%  █████████
+  Boston Celtics                 37.9%     24.2%  ███████
+  Oklahoma City Thunder          31.3%     15.0%  ████
+  Denver Nuggets                 22.6%      9.5%  ██
+  Minnesota Timberwolves         12.6%      3.9%  █
+  LA Clippers                     9.2%      3.1%  
+  Milwaukee Bucks                 6.0%      2.4%  
+  Houston Rockets                 8.0%      1.8%  
+  Los Angeles Lakers              7.0%      1.6%  
+  Memphis Grizzlies               4.8%      1.6%  
+  New York Knicks                 3.0%      1.3%  
+  Detroit Pistons                 3.1%      1.0%  
+  Golden State Warriors           4.5%      0.9%  
+  Indiana Pacers                  2.2%      0.6%  
+  Miami Heat                      0.6%      0.2%  
+  Orlando Magic                   0.1%      0.0%  
+  ==============================================================
+
+==========================================================================
+  CROSS-VALIDATION SUMMARY — ALL SEASONS
+==========================================================================
+  Season         N   Accuracy   Baseline    Δ Acc   Log-Loss    Brier
+--------------------------------------------------------------------------
+  2005-06       89      0.629      0.573 +  0.056      0.642    0.225
+  2006-07       79      0.709      0.557 +  0.152      0.594    0.203
+  2007-08       86      0.663      0.651 +  0.012      0.595    0.205
+  2008-09       85      0.729      0.612 +  0.118      0.617    0.213
+  2009-10       82      0.695      0.634 +  0.061      0.600    0.206
+  2010-11       81      0.654      0.580 +  0.074      0.613    0.213
+  2012-13       85      0.600      0.588 +  0.012      0.649    0.228
+  2013-14       89      0.562      0.584  -0.022      0.666    0.237
+  2014-15       81      0.642      0.605 +  0.037      0.630    0.221
+  2015-16       86      0.709      0.640 +  0.070      0.584    0.200
+  2016-17       79      0.633      0.709  -0.076      0.584    0.200
+  2017-18       82      0.744      0.585 +  0.159      0.565    0.190
+  2018-19       82      0.646      0.671  -0.024      0.653    0.229
+  2020-21       85      0.635      0.600 +  0.035      0.658    0.233
+  2021-22       87      0.621      0.621 +  0.000      0.650    0.229
+  2022-23       84      0.595      0.548 +  0.048      0.702    0.249
+  2023-24       82      0.671      0.598 +  0.073      0.648    0.228
+  2024-25       84      0.571      0.583  -0.012      0.684    0.245
+--------------------------------------------------------------------------
+  MEAN                  0.651      0.608 +  0.043      0.630    0.220
+  STD                   0.051      0.040               0.037    0.016
+==========================================================================
+
+  Features used in model (9):
+     1. DIFF_EFG_PCT
+     2. DIFF_OPP_EFG_PCT
+     3. DIFF_TOV_PCT
+     4. DIFF_OPP_TOV_PCT
+     5. DIFF_ORB_PCT
+     6. DIFF_DRB_PCT
+     7. DIFF_FTR
+     8. DIFF_OPP_FTR
+     9. H2H_WIN_PCT
+
+  Baseline: always predict the actual higher seed wins, using verified
+  bracket seedings joined per game. Lower seed number = higher seed.
+  Log-loss and Brier score: lower is better.

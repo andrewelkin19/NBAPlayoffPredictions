@@ -329,10 +329,9 @@ def load_playoff_bracket(season: str, team_stats: dict, data_dir="data") -> tupl
         for attempt in range(1, MAX_RETRIES + 1):
             try:
                 standings = leaguestandingsv3.LeagueStandingsV3(
-                    season=season,
-                    season_type="Regular Season",
                     league_id="00",
-                    headers=headers,
+                    season_type="Regular Season",
+                    season=season,
                     timeout=120,   # bumped from 60
                 )
                 time.sleep(SLEEP_SEC)
@@ -348,24 +347,45 @@ def load_playoff_bracket(season: str, team_stats: dict, data_dir="data") -> tupl
                 time.sleep(wait)
 
     df["TeamID"] = df["TeamID"].astype(int)
+    df["PlayoffSeeding"] = pd.to_numeric(df["PlayoffSeeding"], errors="coerce")
+    df["PlayoffRank"]    = pd.to_numeric(df["PlayoffRank"],    errors="coerce")
+
+    # Use PlayoffSeeding (post-play-in corrected) when available, else PlayoffRank
+    use_col = "PlayoffSeeding" if df["PlayoffSeeding"].gt(0).any() else "PlayoffRank"
+
+    east = df[df["Conference"] == "East"].dropna(subset=[use_col])
+    east = east[east[use_col] > 0].nsmallest(8, use_col)
+
+    west = df[df["Conference"] == "West"].dropna(subset=[use_col])
+    west = west[west[use_col] > 0].nsmallest(8, use_col)
     
-    east = df[df["Conference"] == "East"].nsmallest(8, "PlayoffRank")
-    west = df[df["Conference"] == "West"].nsmallest(8, "PlayoffRank")
+    print("\n  Standings top 8 East:")
+    
+    for _, row in east.iterrows():
+        tid = int(row["TeamID"])
+        in_stats = tid in team_stats
+        print(f"    Rank {row['PlayoffRank']}: {row['TeamCity']} {row['TeamName']} (ID {tid}) — in team_stats: {in_stats}")
+    print("  Standings top 8 West:")
+    for _, row in west.iterrows():
+        tid = int(row["TeamID"])
+        in_stats = tid in team_stats
+        print(f"    Rank {row['PlayoffRank']}: {row['TeamCity']} {row['TeamName']} (ID {tid}) — in team_stats: {in_stats}")
+    print(f"\n  team_stats keys: {sorted(team_stats.keys())}")
 
     east_bracket, west_bracket, name_lookup = {}, {}, {}
 
     for _, row in east.iterrows():
-        tid, seed = int(row["TeamID"]), int(row["PlayoffRank"])
+        tid, seed = int(row["TeamID"]), int(row[use_col])
         if tid not in team_stats:
-            raise KeyError(f"No stats for East seed {seed} ({row['TeamAbbreviation']}, ID {tid}). "
+            raise KeyError(f"No stats for East seed {seed} ({row['TeamSlug']}, ID {tid}). "
                            f"Check that {season} training data exists.")
         east_bracket[seed] = team_stats[tid]
         name_lookup[tid] = f"{row['TeamCity']} {row['TeamName']}"
 
     for _, row in west.iterrows():
-        tid, seed = int(row["TeamID"]), int(row["PlayoffRank"])
+        tid, seed = int(row["TeamID"]), int(row[use_col])
         if tid not in team_stats:
-            raise KeyError(f"No stats for West seed {seed} ({row['TeamAbbreviation']}, ID {tid}). "
+            raise KeyError(f"No stats for West seed {seed} ({row['TeamSlug']}, ID {tid}). "
                            f"Check that {season} training data exists.")
         west_bracket[seed] = team_stats[tid]
         name_lookup[tid] = f"{row['TeamCity']} {row['TeamName']}"
@@ -399,24 +419,23 @@ def print_results(champ_probs, conf_probs, west_by_seed, east_by_seed,
 
 def main():
     DATA_PATH   = "data/training_data.csv"
-    DEMO_SEASON = "2023-24"
 
+    HOLDOUT_SEASON = "2021-22"   # season you're simulating
+    
     df       = pd.read_csv(DATA_PATH)
-    train_df = df[df["SEASON"] != DEMO_SEASON]
+    train_df = df[df["SEASON"] != HOLDOUT_SEASON]
 
-    print(f"Training on {len(train_df)} games, holding out {DEMO_SEASON}...")
+    print(f"Training on {len(train_df)} games, holding out {HOLDOUT_SEASON}...")
     model = LogisticRegression(learning_rate=0.1, epochs=1000, lambda_=0.01)
     model.fit(train_df[FEATURE_COLS].values, train_df["LABEL"].values)
     print("Done.\n")
 
-    team_stats, h2h_lookup = load_season_data(DEMO_SEASON, path=DATA_PATH)
-    print(f"Loaded stats for {len(team_stats)} teams in {DEMO_SEASON}.\n")
-    
-    HOLDOUT_SEASON = "2023-24"   # season you're simulating
+    team_stats, h2h_lookup = load_season_data(HOLDOUT_SEASON, path=DATA_PATH)
+    print(f"Loaded stats for {len(team_stats)} teams in {HOLDOUT_SEASON}.\n")
     
     east_bracket, west_bracket, name_lookup = load_playoff_bracket(HOLDOUT_SEASON, team_stats)
 
-    print(f"Simulating {DEMO_SEASON} playoff bracket...\n")
+    print(f"Simulating {HOLDOUT_SEASON} playoff bracket...\n")
     champ_probs, conf_probs = simulate_bracket(
         west_bracket, east_bracket, model, h2h_lookup
     )
@@ -426,6 +445,12 @@ def main():
     total = sum(champ_probs.values())
     print(f"\nSanity check — champ probs sum to: {total:.6f}")
 
+    test_df = df[df["SEASON"] == HOLDOUT_SEASON]
+    X_test = test_df[FEATURE_COLS].values
+    y_test = test_df["LABEL"].values
+    preds = model.predict(X_test)
+    accuracy = (preds == y_test).mean()
+    print(f"Test Season Accuracy: {accuracy:.3f}")
 
 if __name__ == "__main__":
     main()
