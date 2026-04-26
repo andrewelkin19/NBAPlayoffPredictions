@@ -22,13 +22,15 @@ import numpy as np
 import pandas as pd
 import os
 
+from feature_sets import get_preset, list_presets, DEFAULT_PRESET, PRESETS
+
 # ── Feature configuration ─────────────────────────────────────────────────────
 #
-# Dean Oliver's Four Factors — applied to both offense and defense.
-# All features are differentials (home team minus away team), so a positive
-# value always means the home team has the advantage in that dimension.
+# FEATURE_COLS is set to the default preset for backward compatibility.
+# Pass a different feature list explicitly to cross_validate() or LogisticRegression
+# to use a different preset without changing this module.
 #
-# Expected coefficient signs after training:
+# Expected coefficient signs for the FOUR_FACTORS preset after training:
 #   DIFF_EFG_PCT      +   home shoots more efficiently  → home wins more
 #   DIFF_OPP_EFG_PCT  -   home allows more eff. shooting → away wins more
 #   DIFF_TOV_PCT      -   home turns ball over more/poss → away wins more
@@ -39,17 +41,7 @@ import os
 #   DIFF_OPP_FTR      -   home fouls opponent more      → away wins more
 #   H2H_WIN_PCT       +   home won more h2h matchups    → home wins more
 
-FEATURE_COLS = [
-    "DIFF_EFG_PCT",      # offensive effective FG% (3s count 1.5x)
-    "DIFF_OPP_EFG_PCT",  # defensive eFG% allowed
-    "DIFF_TOV_PCT",      # turnover rate per possession
-    "DIFF_OPP_TOV_PCT",  # forced turnover rate
-    "DIFF_ORB_PCT",      # offensive rebound rate
-    "DIFF_DRB_PCT",      # defensive rebound rate
-    "DIFF_FTR",          # free throw attempt rate
-    "DIFF_OPP_FTR",      # opponent free throw rate allowed
-    "H2H_WIN_PCT",       # regular-season head-to-head record
-]
+FEATURE_COLS = get_preset(DEFAULT_PRESET)
 
 LABEL_COL  = "LABEL"
 SEASON_COL = "SEASON"
@@ -172,13 +164,21 @@ def baseline_accuracy(df):
 
 # ── Leave-one-season-out cross-validation ─────────────────────────────────────
 
-def cross_validate(df, feature_cols=FEATURE_COLS, **model_kwargs):
+def cross_validate(df, feature_cols=None, **model_kwargs):
     """
     Leave-one-season-out cross-validation.
 
     For each season S: train on all other seasons, evaluate on S.
     This respects temporal structure — no future seasons leak into training.
+
+    Args:
+        df:           Full training DataFrame.
+        feature_cols: List of feature column names. Defaults to FEATURE_COLS
+                      (the default preset) if not provided.
     """
+    if feature_cols is None:
+        feature_cols = FEATURE_COLS
+
     seasons = sorted(df[SEASON_COL].unique())
     results = []
 
@@ -220,8 +220,36 @@ def cross_validate(df, feature_cols=FEATURE_COLS, **model_kwargs):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Train and evaluate logistic regression")
+    parser.add_argument(
+        "--preset", default=DEFAULT_PRESET,
+        choices=list(PRESETS.keys()),
+        help="Feature preset to use (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--list-presets", action="store_true",
+        help="Print available feature presets and exit"
+    )
+    args = parser.parse_args()
+
+    if args.list_presets:
+        list_presets()
+        return
+
+    feature_cols = get_preset(args.preset)
+    print(f"Feature preset: {args.preset} ({len(feature_cols)} features)\n")
+
     data_path = os.path.join("data", "training_data.csv")
     df = pd.read_csv(data_path)
+
+    # Check all requested feature columns are present
+    missing = [c for c in feature_cols if c not in df.columns]
+    if missing:
+        print(f"ERROR: columns missing from training_data.csv: {missing}")
+        print("Re-run DataScrape.py (with --clutch if needed) to regenerate the data.")
+        return
+
     print(f"Loaded {len(df)} examples across {df[SEASON_COL].nunique()} seasons.\n")
 
     base_acc = baseline_accuracy(df)
@@ -231,7 +259,7 @@ def main():
     print("-" * 52)
     cv_results = cross_validate(
         df,
-        feature_cols=FEATURE_COLS,
+        feature_cols=feature_cols,
         learning_rate=0.1,
         epochs=1000,
         lambda_=0.01,
@@ -248,7 +276,7 @@ def main():
     print(f"  Mean log-loss:  {cv_results['log_loss'].mean():.3f}\n")
 
     print("Training final model on full dataset...")
-    X_all = df[FEATURE_COLS].values
+    X_all = df[feature_cols].values
     y_all = df[LABEL_COL].values
 
     final_model = LogisticRegression(
@@ -260,13 +288,13 @@ def main():
     print(f"\nFinal model train accuracy: {np.mean(final_preds == y_all):.3f}")
 
     print("\nLearned feature weights (normalized scale):")
-    print(f"  {'feature':<24} weight")
-    print(f"  {'-'*36}")
-    for feat, w in sorted(zip(FEATURE_COLS, final_model.w), key=lambda x: -abs(x[1])):
+    print(f"  {'feature':<28} weight")
+    print(f"  {'-'*40}")
+    for feat, w in sorted(zip(feature_cols, final_model.w), key=lambda x: -abs(x[1])):
         bar  = "█" * int(abs(w) * 20)
         sign = "+" if w >= 0 else "-"
-        print(f"  {feat:<24} {sign}{abs(w):.4f}  {bar}")
-    print(f"  {'bias':<24} {final_model.b:+.4f}")
+        print(f"  {feat:<28} {sign}{abs(w):.4f}  {bar}")
+    print(f"  {'bias':<28} {final_model.b:+.4f}")
 
 
 if __name__ == "__main__":

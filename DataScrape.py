@@ -9,14 +9,26 @@ Features are based on Dean Oliver's Four Factors:
   Offense: eFG%, TOV%, ORB%, FTR
   Defense: opponent eFG%, opponent TOV%, DRB%, opponent FTR
 
+Optional features (each requires a flag):
+  --clutch       CLUTCH_WIN_PCT, CLUTCH_NET_RATING
+  --star-players TOP1_PM, TOP2_AVG_PM, TOP3_AVG_PM
+  --bpm          TOP1_BPM, TOP2_AVG_BPM, TOP3_AVG_BPM  (requires scrape_bpm.py)
+  --ts           TS_PCT, OPP_TS_PCT (True Shooting % — includes free throws)
+
 Output: data/training_data.csv, data/playoff_brackets.csv
+
+Usage:
+  python DataScrape.py                                  # Four Factors only
+  python DataScrape.py --clutch --star-players --bpm    # all features
+  python DataScrape.py --clutch --star-players --bpm --ts  # including TS%
 """
 
+import argparse
 import time
 import os
 import pandas as pd
 import numpy as np
-from nba_api.stats.endpoints import leaguegamefinder
+from nba_api.stats.endpoints import leaguegamefinder, leaguedashteamclutch, leaguedashplayerstats
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -81,31 +93,147 @@ def fetch_game_logs(season: str, season_type: str) -> pd.DataFrame:
             time.sleep(wait)
 
 
+# ── Step 1b: Fetch clutch stats ───────────────────────────────────────────────
+
+def fetch_clutch_stats(season: str) -> pd.DataFrame:
+    """
+    Fetch per-team clutch stats for a season from nba_api.
+    Clutch = last 5 minutes, game within 5 points (NBA standard definition).
+    Results are cached to data/cache_{season}_clutch.csv.
+    """
+    cache_path = os.path.join(DATA_DIR, f"cache_{season}_clutch.csv")
+
+    if os.path.exists(cache_path):
+        print(f"  Loading clutch stats from cache: {cache_path}")
+        df = pd.read_csv(cache_path)
+        df["TEAM_ID"] = df["TEAM_ID"].astype(int)
+        return df
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            endpoint = leaguedashteamclutch.LeagueDashTeamClutch(
+                season=season,
+                per_mode_detailed="PerGame",
+                timeout=TIMEOUT,
+            )
+            sleep()
+            df = endpoint.get_data_frames()[0]
+            df["TEAM_ID"] = df["TEAM_ID"].astype(int)
+            df.to_csv(cache_path, index=False)
+            print(f"  Clutch stats cached: {cache_path}")
+            return df
+        except Exception as e:
+            if attempt == MAX_RETRIES:
+                raise
+            wait = SLEEP_SEC * (2 ** attempt)
+            print(f"  Attempt {attempt} failed ({e}). Retrying in {wait:.1f}s...")
+            time.sleep(wait)
+
+
+# ── Step 1c: Fetch per-player regular season stats ───────────────────────────
+
+def fetch_player_stats(season: str) -> pd.DataFrame:
+    """
+    Fetch per-player regular season per-game stats for a season.
+    Results cached to data/cache_{season}_player_stats.csv.
+    """
+    cache_path = os.path.join(DATA_DIR, f"cache_{season}_player_stats.csv")
+
+    if os.path.exists(cache_path):
+        print(f"  Loading player stats from cache: {cache_path}")
+        df = pd.read_csv(cache_path)
+        df["TEAM_ID"] = df["TEAM_ID"].astype(int)
+        return df
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            endpoint = leaguedashplayerstats.LeagueDashPlayerStats(
+                season=season,
+                per_mode_detailed="PerGame",
+                timeout=TIMEOUT,
+            )
+            sleep()
+            df = endpoint.get_data_frames()[0]
+            df["TEAM_ID"] = df["TEAM_ID"].astype(int)
+            df.to_csv(cache_path, index=False)
+            print(f"  Player stats cached: {cache_path}")
+            return df
+        except Exception as e:
+            if attempt == MAX_RETRIES:
+                raise
+            wait = SLEEP_SEC * (2 ** attempt)
+            print(f"  Attempt {attempt} failed ({e}). Retrying in {wait:.1f}s...")
+            time.sleep(wait)
+
+
+def fetch_player_game_logs(season: str, season_type: str = "Playoffs") -> pd.DataFrame:
+    """
+    Fetch per-player per-game box scores for a season and game type.
+    Results cached to data/cache_{season}_player_game_logs_{type}.csv.
+    """
+    from nba_api.stats.endpoints import playergamelogs
+
+    safe_type  = season_type.replace(" ", "_")
+    cache_path = os.path.join(DATA_DIR, f"cache_{season}_player_game_logs_{safe_type}.csv")
+
+    if os.path.exists(cache_path):
+        print(f"  Loading player game logs from cache: {cache_path}")
+        df = pd.read_csv(cache_path)
+        df["TEAM_ID"]  = df["TEAM_ID"].astype(int)
+        df["GAME_ID"]  = df["GAME_ID"].astype(str)
+        return df
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            endpoint = playergamelogs.PlayerGameLogs(
+                season_nullable=season,
+                season_type_nullable=season_type,
+                timeout=TIMEOUT,
+            )
+            sleep()
+            df = endpoint.get_data_frames()[0]
+            df["TEAM_ID"] = df["TEAM_ID"].astype(int)
+            df["GAME_ID"] = df["GAME_ID"].astype(str)
+            df.to_csv(cache_path, index=False)
+            print(f"  Player game logs cached: {cache_path}")
+            return df
+        except Exception as e:
+            if attempt == MAX_RETRIES:
+                raise
+            wait = SLEEP_SEC * (2 ** attempt)
+            print(f"  Attempt {attempt} failed ({e}). Retrying in {wait:.1f}s...")
+            time.sleep(wait)
+
+
 # ── Step 2: Compute season-level team features ────────────────────────────────
 
 def compute_team_features(reg_season_logs: pd.DataFrame) -> pd.DataFrame:
     """
-    Aggregates per-team regular season stats into Dean Oliver's Four Factors.
+    Aggregates per-team regular season stats into Dean Oliver's Four Factors,
+    plus True Shooting % (always computed; included in training data only if
+    --ts flag is passed).
 
     Four Factors — Offense:
-      EFG_PCT     = (FGM + 0.5*FG3M) / FGA          effective field goal %
-      TOV_PCT     = TOV / (FGA + 0.44*FTA + TOV)    turnover rate per possession
-      ORB_PCT     = OREB / (OREB + OPP_DREB)         offensive rebound rate
-      FTR         = FTA / FGA                         free throw attempt rate
+      EFG_PCT  = (FGM + 0.5*FG3M) / FGA
+      TOV_PCT  = TOV / (FGA + 0.44*FTA + TOV)
+      ORB_PCT  = OREB / (OREB + OPP_DREB)
+      FTR      = FTA / FGA
 
-    Four Factors — Defense (opponent's offensive stats against this team):
-      OPP_EFG_PCT = (OPP_FGM + 0.5*OPP_FG3M) / OPP_FGA
-      OPP_TOV_PCT = OPP_TOV / (OPP_FGA + 0.44*OPP_FTA + OPP_TOV)
-      DRB_PCT     = DREB / (DREB + OPP_OREB)
-      OPP_FTR     = OPP_FTA / OPP_FGA
+    Four Factors — Defense:
+      OPP_EFG_PCT, OPP_TOV_PCT, DRB_PCT, OPP_FTR
 
-    WIN_PCT is also kept for the Finals home-court tiebreaker in bracket_simulator.
+    True Shooting %:
+      TS_PCT     = PTS / (2 * (FGA + 0.44 * FTA))
+      OPP_TS_PCT = OPP_PTS / (2 * (OPP_FGA + 0.44 * OPP_FTA))
+      (always computed here; only added to training rows if --ts is passed)
+
+    WIN_PCT is kept for the Finals home-court tiebreaker in bracket_simulator.
     """
     df = reg_season_logs.copy()
     df["HOME"] = df["MATCHUP"].apply(lambda x: 1 if "vs." in x else 0)
     df["WIN"]  = (df["WL"] == "W").astype(int)
 
-    # Build opponent lookup — all stats needed for Four Factors
+    # Build opponent lookup
     opp_cols = ["GAME_ID", "TEAM_ID",
                 "PTS", "FGM", "FGA", "FG3M", "FG3A",
                 "FTA", "OREB", "DREB", "TOV"]
@@ -117,7 +245,6 @@ def compute_team_features(reg_season_logs: pd.DataFrame) -> pd.DataFrame:
     df = df.merge(opp, on="GAME_ID", how="left")
     df = df[df["TEAM_ID"] != df["OPP_TEAM_ID"]]
 
-    # Aggregate to season-level per-game averages
     agg = df.groupby("TEAM_ID").agg(
         TEAM_NAME         = ("TEAM_NAME",        "first"),
         TEAM_ABBREVIATION = ("TEAM_ABBREVIATION", "first"),
@@ -132,7 +259,8 @@ def compute_team_features(reg_season_logs: pd.DataFrame) -> pd.DataFrame:
         OREB_PG           = ("OREB",              "mean"),
         DREB_PG           = ("DREB",              "mean"),
         TOV_PG            = ("TOV",               "mean"),
-        # Defensive raw stats (opponent's offensive stats against this team)
+        PTS_PG            = ("PTS",               "mean"),
+        # Defensive raw stats
         OPP_FGM_PG        = ("OPP_FGM",           "mean"),
         OPP_FGA_PG        = ("OPP_FGA",           "mean"),
         OPP_FG3M_PG       = ("OPP_FG3M",          "mean"),
@@ -140,49 +268,127 @@ def compute_team_features(reg_season_logs: pd.DataFrame) -> pd.DataFrame:
         OPP_OREB_PG       = ("OPP_OREB",          "mean"),
         OPP_DREB_PG       = ("OPP_DREB",          "mean"),
         OPP_TOV_PG        = ("OPP_TOV",           "mean"),
+        OPP_PTS_PG        = ("OPP_PTS",           "mean"),
     ).reset_index()
 
     agg["WIN_PCT"] = agg["WINS"] / agg["GAMES"]
 
     # ── Four Factors — Offense ────────────────────────────────────────────────
-    # eFG%: weights 3-pointers at 1.5× since they're worth 50% more than a 2.
     agg["EFG_PCT"] = (agg["FGM_PG"] + 0.5 * agg["FG3M_PG"]) / agg["FGA_PG"]
-
-    # TOV%: turnovers per possession. 0.44 is Oliver's coefficient for the
-    # fraction of FTA trips that actually end a possession.
     agg["TOV_PCT"] = agg["TOV_PG"] / (agg["FGA_PG"] + 0.44 * agg["FTA_PG"] + agg["TOV_PG"])
-
-    # ORB%: fraction of available offensive boards the team captures.
     agg["ORB_PCT"] = agg["OREB_PG"] / (agg["OREB_PG"] + agg["OPP_DREB_PG"])
-
-    # FTR: how aggressively the team gets to the line.
-    agg["FTR"] = agg["FTA_PG"] / agg["FGA_PG"]
+    agg["FTR"]     = agg["FTA_PG"] / agg["FGA_PG"]
 
     # ── Four Factors — Defense ────────────────────────────────────────────────
-    # Opponent's eFG% allowed — lower is better defense.
     agg["OPP_EFG_PCT"] = (agg["OPP_FGM_PG"] + 0.5 * agg["OPP_FG3M_PG"]) / agg["OPP_FGA_PG"]
-
-    # Turnovers forced per opponent possession — higher is better.
     agg["OPP_TOV_PCT"] = agg["OPP_TOV_PG"] / (
         agg["OPP_FGA_PG"] + 0.44 * agg["OPP_FTA_PG"] + agg["OPP_TOV_PG"]
     )
-
-    # DRB%: fraction of available defensive boards the team secures.
     agg["DRB_PCT"] = agg["DREB_PG"] / (agg["DREB_PG"] + agg["OPP_OREB_PG"])
-
-    # Opponent FTR — how often the team fouls. Lower is better defensively.
     agg["OPP_FTR"] = agg["OPP_FTA_PG"] / agg["OPP_FGA_PG"]
+
+    # ── True Shooting % ───────────────────────────────────────────────────────
+    # Always computed here; only pulled into training examples if --ts is passed.
+    # TS% = PTS / (2 * (FGA + 0.44 * FTA))
+    # Includes free throw value unlike eFG%, which only adjusts for 3-pointers.
+    agg["TS_PCT"]     = agg["PTS_PG"]     / (2 * (agg["FGA_PG"]     + 0.44 * agg["FTA_PG"]))
+    agg["OPP_TS_PCT"] = agg["OPP_PTS_PG"] / (2 * (agg["OPP_FGA_PG"] + 0.44 * agg["OPP_FTA_PG"]))
 
     agg["TEAM_ID"] = agg["TEAM_ID"].astype(int)
     return agg
+
+
+# ── Step 2b: Merge clutch features ───────────────────────────────────────────
+
+def compute_clutch_features(
+    team_features: pd.DataFrame,
+    clutch_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Merges clutch stats into team_features.
+    Adds CLUTCH_WIN_PCT and CLUTCH_NET_RATING columns.
+    """
+    clutch = clutch_df[["TEAM_ID", "W_PCT", "PLUS_MINUS"]].copy()
+    clutch = clutch.rename(columns={
+        "W_PCT":      "CLUTCH_WIN_PCT",
+        "PLUS_MINUS": "CLUTCH_NET_RATING",
+    })
+    clutch["TEAM_ID"] = clutch["TEAM_ID"].astype(int)
+
+    merged = team_features.merge(clutch, on="TEAM_ID", how="left")
+    merged["CLUTCH_WIN_PCT"]    = merged["CLUTCH_WIN_PCT"].fillna(0.5)
+    merged["CLUTCH_NET_RATING"] = merged["CLUTCH_NET_RATING"].fillna(0.0)
+
+    n_missing = merged["CLUTCH_WIN_PCT"].isna().sum()
+    if n_missing:
+        print(f"  [warning] {n_missing} teams missing clutch data — filled with defaults")
+
+    return merged
+
+
+# ── Step 2c: Compute star player features ────────────────────────────────────
+
+def compute_star_player_features(
+    team_features: pd.DataFrame,
+    player_stats: pd.DataFrame,
+    min_mpg: float = 20.0,
+    min_games: int = 20,
+) -> pd.DataFrame:
+    """
+    Adds TOP1_PM, TOP2_AVG_PM, TOP3_AVG_PM columns to team_features.
+    Only players meeting minute and game thresholds are considered.
+    """
+    qualified = player_stats[
+        (player_stats["MIN"] >= min_mpg) &
+        (player_stats["GP"]  >= min_games)
+    ].copy()
+
+    star_rows = []
+    for team_id in team_features["TEAM_ID"].unique():
+        team_players = (
+            qualified[qualified["TEAM_ID"] == int(team_id)]
+            .sort_values("PLUS_MINUS", ascending=False)
+        )
+
+        if len(team_players) == 0:
+            top1_pm, top2_avg_pm, top3_avg_pm = 0.0, 0.0, 0.0
+        elif len(team_players) == 1:
+            top1_pm = float(team_players.iloc[0]["PLUS_MINUS"])
+            top2_avg_pm = top3_avg_pm = top1_pm
+        elif len(team_players) == 2:
+            top1_pm     = float(team_players.iloc[0]["PLUS_MINUS"])
+            top2_avg_pm = float(team_players.head(2)["PLUS_MINUS"].mean())
+            top3_avg_pm = top2_avg_pm
+        else:
+            top1_pm     = float(team_players.iloc[0]["PLUS_MINUS"])
+            top2_avg_pm = float(team_players.head(2)["PLUS_MINUS"].mean())
+            top3_avg_pm = float(team_players.head(3)["PLUS_MINUS"].mean())
+
+        star_rows.append({
+            "TEAM_ID":     int(team_id),
+            "TOP1_PM":     top1_pm,
+            "TOP2_AVG_PM": top2_avg_pm,
+            "TOP3_AVG_PM": top3_avg_pm,
+        })
+
+    star_df = pd.DataFrame(star_rows)
+    merged  = team_features.merge(star_df, on="TEAM_ID", how="left")
+    merged["TOP1_PM"]     = merged["TOP1_PM"].fillna(0.0)
+    merged["TOP2_AVG_PM"] = merged["TOP2_AVG_PM"].fillna(0.0)
+    merged["TOP3_AVG_PM"] = merged["TOP3_AVG_PM"].fillna(0.0)
+    return merged
+
+
+# ── Step 2d: Merge BPM features ──────────────────────────────────────────────
+
+from scrape_bpm import load_bpm_season, compute_star_bpm_features
 
 
 # ── Step 3: Compute head-to-head regular season win rate ──────────────────────
 
 def compute_h2h(reg_season_logs: pd.DataFrame) -> pd.DataFrame:
     """
-    Returns [TEAM_ID, OPP_TEAM_ID, H2H_WIN_PCT] — each team's win rate
-    against each opponent in the regular season.
+    Returns [TEAM_ID, OPP_TEAM_ID, H2H_WIN_PCT].
     """
     df = reg_season_logs.copy()
     df["WIN"] = (df["WL"] == "W").astype(int)
@@ -201,22 +407,28 @@ def compute_h2h(reg_season_logs: pd.DataFrame) -> pd.DataFrame:
     h2h["H2H_WIN_PCT"] = h2h["H2H_WINS"] / h2h["H2H_GAMES"]
     h2h["TEAM_ID"]     = h2h["TEAM_ID"].astype(int)
     h2h["OPP_TEAM_ID"] = h2h["OPP_TEAM_ID"].astype(int)
-
     return h2h[["TEAM_ID", "OPP_TEAM_ID", "H2H_WIN_PCT"]]
 
 
-# ── Step 4: Build training examples from playoff games ────────────────────────
+# ── Step 4: Build training examples ──────────────────────────────────────────
 
 def build_training_examples(
     playoff_logs:   pd.DataFrame,
     team_features:  pd.DataFrame,
     h2h:            pd.DataFrame,
     season:         str,
+    include_ts:     bool = False,
 ) -> pd.DataFrame:
     """
     For each playoff game, creates one training row anchored on the home team.
-    Features are Four Factor differentials (home - away).
-    Label = 1 if home team wins.
+    Features are differentials (home - away). Label = 1 if home team wins.
+
+    Optional feature groups are included only if the corresponding columns
+    exist in team_features AND the relevant flag was passed:
+      - clutch:  CLUTCH_WIN_PCT, CLUTCH_NET_RATING   (auto-detected)
+      - star PM: TOP1_PM, TOP2_AVG_PM, TOP3_AVG_PM   (auto-detected)
+      - BPM:     TOP1_BPM, TOP2_AVG_BPM, TOP3_AVG_BPM (auto-detected)
+      - TS%:     TS_PCT, OPP_TS_PCT                   (requires include_ts=True)
     """
     df = playoff_logs.copy()
     df["WIN"]  = (df["WL"] == "W").astype(int)
@@ -229,38 +441,56 @@ def build_training_examples(
     games = home.merge(away, on="GAME_ID", how="inner")
     games["SEASON"] = season
 
-    # Normalize types before merging
-    games["TEAM_ID"]     = games["TEAM_ID"].astype(int)
-    games["OPP_TEAM_ID"] = games["OPP_TEAM_ID"].astype(int)
-    team_features        = team_features.copy()
+    games["TEAM_ID"]         = games["TEAM_ID"].astype(int)
+    games["OPP_TEAM_ID"]     = games["OPP_TEAM_ID"].astype(int)
+    team_features            = team_features.copy()
     team_features["TEAM_ID"] = team_features["TEAM_ID"].astype(int)
-    h2h = h2h.copy()
-    h2h["TEAM_ID"]     = h2h["TEAM_ID"].astype(int)
-    h2h["OPP_TEAM_ID"] = h2h["OPP_TEAM_ID"].astype(int)
+    h2h                      = h2h.copy()
+    h2h["TEAM_ID"]           = h2h["TEAM_ID"].astype(int)
+    h2h["OPP_TEAM_ID"]       = h2h["OPP_TEAM_ID"].astype(int)
 
-    # Columns to pull from team_features for each side
-    feat_cols = ["TEAM_ID",
-                 "EFG_PCT", "OPP_EFG_PCT",
-                 "TOV_PCT", "OPP_TOV_PCT",
-                 "ORB_PCT", "DRB_PCT",
-                 "FTR",     "OPP_FTR",
-                 "WIN_PCT"]   # kept for Finals HCA tiebreaker, not a model feature
+    # ── Determine which columns to pull from team_features ────────────────────
+    base_feat_cols = [
+        "TEAM_ID",
+        "EFG_PCT", "OPP_EFG_PCT",
+        "TOV_PCT", "OPP_TOV_PCT",
+        "ORB_PCT", "DRB_PCT",
+        "FTR",     "OPP_FTR",
+        "WIN_PCT",
+    ]
 
-    home_feats = team_features[feat_cols].add_prefix("HOME_").rename(
+    # TS% is always computed in team_features but only included if --ts passed
+    has_ts = include_ts and "TS_PCT" in team_features.columns
+    if has_ts:
+        base_feat_cols += ["TS_PCT", "OPP_TS_PCT"]
+
+    has_clutch = "CLUTCH_WIN_PCT" in team_features.columns
+    if has_clutch:
+        base_feat_cols += ["CLUTCH_WIN_PCT", "CLUTCH_NET_RATING"]
+
+    has_star = "TOP1_PM" in team_features.columns
+    if has_star:
+        base_feat_cols += ["TOP1_PM", "TOP2_AVG_PM"]
+        if "TOP3_AVG_PM" in team_features.columns:
+            base_feat_cols += ["TOP3_AVG_PM"]
+
+    has_bpm = "TOP1_BPM" in team_features.columns
+    if has_bpm:
+        base_feat_cols += ["TOP1_BPM", "TOP2_AVG_BPM", "TOP3_AVG_BPM"]
+
+    home_feats = team_features[base_feat_cols].add_prefix("HOME_").rename(
         columns={"HOME_TEAM_ID": "TEAM_ID"}
     )
-    away_feats = team_features[feat_cols].add_prefix("AWAY_").rename(
+    away_feats = team_features[base_feat_cols].add_prefix("AWAY_").rename(
         columns={"AWAY_TEAM_ID": "OPP_TEAM_ID"}
     )
 
     games = games.merge(home_feats, on="TEAM_ID",     how="left")
     games = games.merge(away_feats, on="OPP_TEAM_ID", how="left")
-
-    # Head-to-head win pct (home team's record vs away team in regular season)
     games = games.merge(h2h, on=["TEAM_ID", "OPP_TEAM_ID"], how="left")
     games["H2H_WIN_PCT"] = games["H2H_WIN_PCT"].fillna(0.5)
 
-    # ── Four Factor differentials (home − away) ───────────────────────────────
+    # ── Four Factor differentials ─────────────────────────────────────────────
     games["DIFF_EFG_PCT"]     = games["HOME_EFG_PCT"]     - games["AWAY_EFG_PCT"]
     games["DIFF_OPP_EFG_PCT"] = games["HOME_OPP_EFG_PCT"] - games["AWAY_OPP_EFG_PCT"]
     games["DIFF_TOV_PCT"]     = games["HOME_TOV_PCT"]     - games["AWAY_TOV_PCT"]
@@ -269,8 +499,34 @@ def build_training_examples(
     games["DIFF_DRB_PCT"]     = games["HOME_DRB_PCT"]     - games["AWAY_DRB_PCT"]
     games["DIFF_FTR"]         = games["HOME_FTR"]         - games["AWAY_FTR"]
     games["DIFF_OPP_FTR"]     = games["HOME_OPP_FTR"]     - games["AWAY_OPP_FTR"]
-    # Also keep WIN_PCT diff for the baseline comparison in logistic_regression.py
     games["DIFF_WIN_PCT"]     = games["HOME_WIN_PCT"]     - games["AWAY_WIN_PCT"]
+
+    # ── TS% differentials (only if --ts passed) ───────────────────────────────
+    if has_ts:
+        games["DIFF_TS_PCT"]     = games["HOME_TS_PCT"]     - games["AWAY_TS_PCT"]
+        games["DIFF_OPP_TS_PCT"] = games["HOME_OPP_TS_PCT"] - games["AWAY_OPP_TS_PCT"]
+
+    # ── Clutch differentials ──────────────────────────────────────────────────
+    if has_clutch:
+        games["DIFF_CLUTCH_WIN_PCT"]    = (
+            games["HOME_CLUTCH_WIN_PCT"]    - games["AWAY_CLUTCH_WIN_PCT"]
+        )
+        games["DIFF_CLUTCH_NET_RATING"] = (
+            games["HOME_CLUTCH_NET_RATING"] - games["AWAY_CLUTCH_NET_RATING"]
+        )
+
+    # ── Star player differentials ─────────────────────────────────────────────
+    if has_star:
+        games["DIFF_TOP1_PM"]     = games["HOME_TOP1_PM"]     - games["AWAY_TOP1_PM"]
+        games["DIFF_TOP2_AVG_PM"] = games["HOME_TOP2_AVG_PM"] - games["AWAY_TOP2_AVG_PM"]
+        if "TOP3_AVG_PM" in team_features.columns:
+            games["DIFF_TOP3_AVG_PM"] = games["HOME_TOP3_AVG_PM"] - games["AWAY_TOP3_AVG_PM"]
+
+    # ── BPM differentials ─────────────────────────────────────────────────────
+    if has_bpm:
+        games["DIFF_TOP1_BPM"]     = games["HOME_TOP1_BPM"]     - games["AWAY_TOP1_BPM"]
+        games["DIFF_TOP2_AVG_BPM"] = games["HOME_TOP2_AVG_BPM"] - games["AWAY_TOP2_AVG_BPM"]
+        games["DIFF_TOP3_AVG_BPM"] = games["HOME_TOP3_AVG_BPM"] - games["AWAY_TOP3_AVG_BPM"]
 
     games.rename(columns={"WIN": "LABEL"}, inplace=True)
     return games
@@ -317,7 +573,35 @@ def build_bracket_summary(playoff_logs: pd.DataFrame, season: str) -> pd.DataFra
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
+    parser = argparse.ArgumentParser(description="NBA playoff data pipeline")
+    parser.add_argument(
+        "--clutch", action="store_true",
+        help="Fetch clutch stats and add DIFF_CLUTCH_* columns"
+    )
+    parser.add_argument(
+        "--star-players", action="store_true",
+        help="Fetch player stats and add DIFF_TOP1_PM / DIFF_TOP2_AVG_PM / DIFF_TOP3_AVG_PM columns"
+    )
+    parser.add_argument(
+        "--bpm", action="store_true",
+        help="Merge BPM from data/bpm/ and add DIFF_TOP*_BPM columns. "
+             "Requires scrape_bpm.py to have been run first."
+    )
+    parser.add_argument(
+        "--ts", action="store_true",
+        help="Include True Shooting %% columns: DIFF_TS_PCT, DIFF_OPP_TS_PCT. "
+             "TS%% = PTS / (2*(FGA + 0.44*FTA)) — incorporates free throw value "
+             "unlike eFG%% which only adjusts for 3-pointers."
+    )
+    args = parser.parse_args()
+
     os.makedirs(DATA_DIR, exist_ok=True)
+
+    print(f"Clutch features     : {'ENABLED' if args.clutch       else 'disabled  (pass --clutch)'}")
+    print(f"Star player features: {'ENABLED' if args.star_players else 'disabled  (pass --star-players)'}")
+    print(f"BPM features        : {'ENABLED' if args.bpm          else 'disabled  (pass --bpm, requires scrape_bpm.py)'}")
+    print(f"True Shooting %%     : {'ENABLED' if args.ts           else 'disabled  (pass --ts)'}")
+    print()
 
     all_training = []
     all_brackets = []
@@ -343,11 +627,37 @@ def main():
             print("  Computing team features...")
             team_features = compute_team_features(reg_logs)
 
+            if args.clutch:
+                print("  Fetching clutch stats...")
+                clutch_df     = fetch_clutch_stats(season)
+                team_features = compute_clutch_features(team_features, clutch_df)
+                print(f"  → clutch features merged for {len(team_features)} teams")
+
+            if args.star_players:
+                print("  Fetching player stats...")
+                player_stats  = fetch_player_stats(season)
+                team_features = compute_star_player_features(team_features, player_stats)
+                print(f"  → star player features merged for {len(team_features)} teams")
+
+            if args.bpm:
+                bpm_df = load_bpm_season(season)
+                if bpm_df is not None:
+                    team_features = compute_star_bpm_features(team_features, bpm_df)
+                    print(f"  → BPM features merged for {len(team_features)} teams")
+                else:
+                    print(f"  [skip] No BPM data for {season} — run scrape_bpm.py first")
+
+            if args.ts:
+                print(f"  → TS%% will be included in training examples")
+
             print("  Computing head-to-head records...")
             h2h = compute_h2h(reg_logs)
 
             print("  Building training examples...")
-            training = build_training_examples(playoff_logs, team_features, h2h, season)
+            training = build_training_examples(
+                playoff_logs, team_features, h2h, season,
+                include_ts=args.ts,
+            )
             all_training.append(training)
             print(f"  → {len(training)} training examples")
 
@@ -364,7 +674,13 @@ def main():
         training_df   = pd.concat(all_training, ignore_index=True)
         training_path = os.path.join(DATA_DIR, "training_data.csv")
         training_df.to_csv(training_path, index=False)
-        print(f"\n✓ Training data saved: {training_path} ({len(training_df)} rows)")
+        n_cols = len(training_df.columns)
+        print(f"\n✓ Training data saved: {training_path} ({len(training_df)} rows, {n_cols} cols)")
+
+        extra_cols = [c for c in training_df.columns
+                      if any(k in c for k in ("CLUTCH", "TOP", "TS_PCT"))]
+        if extra_cols:
+            print(f"  Extra feature columns: {extra_cols}")
 
     if all_brackets:
         bracket_df   = pd.concat(all_brackets, ignore_index=True)

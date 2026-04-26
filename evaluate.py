@@ -5,13 +5,21 @@ CS830 Final Project - Andrew Elkin
 Runs leave-one-season-out cross-validation across all seasons.
 Outputs:
   - Console: live output as each season is evaluated
-  - results/evaluation_report.txt: full readable report
+  - results/evaluation_report_{preset}.txt: full readable report
+
+Usage:
+  python evaluate.py                          # default preset (four_factors)
+  python evaluate.py --preset four_factors_clutch
+  python evaluate.py --compare-all            # run every preset and print a summary table
+  python evaluate.py --list-presets           # show available presets
 """
 
 import os
+import argparse
 import numpy as np
 import pandas as pd
-from logistic_regression import LogisticRegression, FEATURE_COLS
+from logistic_regression import LogisticRegression
+from feature_sets import get_preset, list_presets, DEFAULT_PRESET, PRESETS
 from bracket_simulator import (
     simulate_bracket, load_season_data, load_playoff_bracket, series_win_prob
 )
@@ -63,10 +71,6 @@ def compute_metrics(y_true: np.ndarray, y_proba: np.ndarray) -> dict:
 # ── Seeding-accurate baseline ─────────────────────────────────────────────────
 
 def build_seed_lookup(east_bracket: dict, west_bracket: dict) -> dict:
-    """
-    Returns {team_id: seed_number} for all 16 playoff teams.
-    Lower seed number = higher seed (seed 1 beats seed 8 in R1).
-    """
     lookup = {}
     for seed, team in east_bracket.items():
         lookup[int(team["TEAM_ID"])] = seed
@@ -76,13 +80,6 @@ def build_seed_lookup(east_bracket: dict, west_bracket: dict) -> dict:
 
 
 def higher_seed_baseline(test_df: pd.DataFrame, seed_lookup: dict) -> tuple[float, int]:
-    """
-    Fraction of playoff games won by the actual higher seed.
-    Joins each game row against verified bracket seedings.
-
-    LABEL=1 means the home team won. Lower seed number = higher seed.
-    Returns (accuracy, n_games_matched).
-    """
     correct = 0
     total   = 0
 
@@ -93,7 +90,7 @@ def higher_seed_baseline(test_df: pd.DataFrame, seed_lookup: dict) -> tuple[floa
         away_seed = seed_lookup.get(away_tid)
 
         if home_seed is None or away_seed is None:
-            continue  # unmatched — skip and report
+            continue
 
         higher_seed_is_home = home_seed < away_seed
         home_won            = int(row["LABEL"]) == 1
@@ -108,12 +105,9 @@ def higher_seed_baseline(test_df: pd.DataFrame, seed_lookup: dict) -> tuple[floa
 
 # ── Bracket visualization ─────────────────────────────────────────────────────
 
-def predict_series(model, higher_seed, lower_seed, h2h_lookup, name_lookup):
-    """
-    Returns (winner, prob_winner_wins, winner_name, higher_seed_name, lower_seed_name).
-    higher_seed has home court advantage.
-    """
-    p      = series_win_prob(model, higher_seed, lower_seed, h2h_lookup)
+def predict_series(model, higher_seed, lower_seed, h2h_lookup, name_lookup,
+                   feature_cols):
+    p      = series_win_prob(model, higher_seed, lower_seed, h2h_lookup, feature_cols)
     winner = higher_seed if p >= 0.5 else lower_seed
     prob   = p if p >= 0.5 else 1.0 - p
 
@@ -124,55 +118,45 @@ def predict_series(model, higher_seed, lower_seed, h2h_lookup, name_lookup):
 
 
 def home_court(team_a, team_b, seed_lookup):
-    """
-    Returns (higher_seed_team, lower_seed_team) using actual bracket seedings.
-    Falls back to WIN_PCT if either team is missing from the lookup
-    (only possible in Finals where seeds are cross-conference).
-    """
     seed_a = seed_lookup.get(int(team_a["TEAM_ID"]))
     seed_b = seed_lookup.get(int(team_b["TEAM_ID"]))
 
     if seed_a is not None and seed_b is not None:
         return (team_a, team_b) if seed_a < seed_b else (team_b, team_a)
 
-    # Finals fallback: best regular season record gets home court
     return (team_a, team_b) if team_a["WIN_PCT"] >= team_b["WIN_PCT"] else (team_b, team_a)
 
 
 def display_bracket(west_by_seed, east_by_seed, model, h2h_lookup,
-                    name_lookup, seed_lookup, w):
-    """Prints a round-by-round predicted bracket to writer w."""
+                    name_lookup, seed_lookup, w, feature_cols):
 
     def run_conference(conf_name, by_seed):
         w(f"  ── {conf_name} " + "─" * (54 - len(conf_name)))
 
-        # Round 1: fixed seeded matchups
         w(f"\n  First Round")
         r1_winners = {}
         for h_s, l_s in [(1, 8), (2, 7), (3, 6), (4, 5)]:
             winner, prob, wname, hname, lname = predict_series(
-                model, by_seed[h_s], by_seed[l_s], h2h_lookup, name_lookup
+                model, by_seed[h_s], by_seed[l_s], h2h_lookup, name_lookup, feature_cols
             )
             w(f"    ({h_s}) {hname} vs ({l_s}) {lname:<22}  → {wname} ({prob:.0%})")
             r1_winners[h_s] = winner
 
-        # Semifinals: winner(1/8) vs winner(4/5), winner(2/7) vs winner(3/6)
         w(f"\n  Semifinals")
         semi_pairs   = [(r1_winners[1], r1_winners[4]), (r1_winners[2], r1_winners[3])]
         semi_winners = []
         for team_a, team_b in semi_pairs:
             higher, lower = home_court(team_a, team_b, seed_lookup)
             winner, prob, wname, hname, lname = predict_series(
-                model, higher, lower, h2h_lookup, name_lookup
+                model, higher, lower, h2h_lookup, name_lookup, feature_cols
             )
             w(f"    {hname} vs {lname:<26}  → {wname} ({prob:.0%})")
             semi_winners.append(winner)
 
-        # Conference Finals
         w(f"\n  Conference Finals")
         higher, lower = home_court(semi_winners[0], semi_winners[1], seed_lookup)
         winner, prob, wname, hname, lname = predict_series(
-            model, higher, lower, h2h_lookup, name_lookup
+            model, higher, lower, h2h_lookup, name_lookup, feature_cols
         )
         w(f"    {hname} vs {lname:<26}  → {wname} ({prob:.0%})")
         w()
@@ -182,12 +166,10 @@ def display_bracket(west_by_seed, east_by_seed, model, h2h_lookup,
     west_champ = run_conference("WESTERN CONFERENCE", west_by_seed)
     east_champ = run_conference("EASTERN CONFERENCE", east_by_seed)
 
-    # NBA Finals
     w(f"  ── NBA FINALS " + "─" * 54)
-    # Cross-conference: home court to team with better regular season record
     higher, lower = home_court(west_champ, east_champ, seed_lookup)
     winner, prob, wname, hname, lname = predict_series(
-        model, higher, lower, h2h_lookup, name_lookup
+        model, higher, lower, h2h_lookup, name_lookup, feature_cols
     )
     w(f"    {hname} vs {lname:<26}  → {wname} ({prob:.0%})")
     w()
@@ -209,7 +191,12 @@ def display_champ_table(champ_probs, conf_probs, name_lookup, w):
 
 # ── Per-season evaluation ─────────────────────────────────────────────────────
 
-def evaluate_season(holdout: str, df: pd.DataFrame, w: Writer) -> dict | None:
+def evaluate_season(
+    holdout: str,
+    df: pd.DataFrame,
+    feature_cols: list[str],
+    w: Writer,
+) -> dict | None:
     train_df = df[df["SEASON"] != holdout]
     test_df  = df[df["SEASON"] == holdout]
 
@@ -217,7 +204,6 @@ def evaluate_season(holdout: str, df: pd.DataFrame, w: Writer) -> dict | None:
         w(f"  [skip] No test data for {holdout}")
         return None
 
-    # ── Load bracket first — needed for the accurate baseline ─────────────────
     try:
         team_stats, h2h_lookup = load_season_data(holdout, path=DATA_PATH)
         east_bracket, west_bracket, name_lookup = load_playoff_bracket(holdout, team_stats)
@@ -226,16 +212,14 @@ def evaluate_season(holdout: str, df: pd.DataFrame, w: Writer) -> dict | None:
         w(f"  [skip] Could not load bracket for {holdout}: {e}")
         return None
 
-    # ── Train model ───────────────────────────────────────────────────────────
-    X_train = train_df[FEATURE_COLS].values
+    X_train = train_df[feature_cols].values
     y_train = train_df["LABEL"].values
-    X_test  = test_df[FEATURE_COLS].values
+    X_test  = test_df[feature_cols].values
     y_test  = test_df["LABEL"].values
 
     model = LogisticRegression(learning_rate=0.1, epochs=1000, lambda_=0.01)
     model.fit(X_train, y_train)
 
-    # ── Evaluate ──────────────────────────────────────────────────────────────
     y_proba              = model.predict_proba(X_test)
     metrics              = compute_metrics(y_test, y_proba)
     baseline, n_matched  = higher_seed_baseline(test_df, seed_lookup)
@@ -253,15 +237,14 @@ def evaluate_season(holdout: str, df: pd.DataFrame, w: Writer) -> dict | None:
     w(f"  Log-loss         : {metrics['log_loss']:.3f}")
     w(f"  Brier score      : {metrics['brier']:.3f}")
 
-    # ── Bracket visualization ─────────────────────────────────────────────────
     try:
         w(f"\n  Predicted bracket ({holdout}):")
         display_bracket(
             west_bracket, east_bracket, model, h2h_lookup,
-            name_lookup, seed_lookup, w
+            name_lookup, seed_lookup, w, feature_cols
         )
         champ_probs, conf_probs = simulate_bracket(
-            west_bracket, east_bracket, model, h2h_lookup
+            west_bracket, east_bracket, model, h2h_lookup, feature_cols
         )
         w(f"  Championship probabilities:")
         display_champ_table(champ_probs, conf_probs, name_lookup, w)
@@ -274,7 +257,7 @@ def evaluate_season(holdout: str, df: pd.DataFrame, w: Writer) -> dict | None:
 
 # ── Summary table ─────────────────────────────────────────────────────────────
 
-def display_summary(results: list[dict], w: Writer):
+def display_summary(results: list[dict], feature_cols: list[str], w: Writer):
     w()
     w("=" * 74)
     w("  CROSS-VALIDATION SUMMARY — ALL SEASONS")
@@ -307,8 +290,8 @@ def display_summary(results: list[dict], w: Writer):
     w("=" * 74)
 
     w()
-    w(f"  Features used in model ({len(FEATURE_COLS)}):")
-    for i, col in enumerate(FEATURE_COLS, 1):
+    w(f"  Features used in model ({len(feature_cols)}):")
+    for i, col in enumerate(feature_cols, 1):
         w(f"    {i:2}. {col}")
     w()
     w("  Baseline: always predict the actual higher seed wins, using verified")
@@ -317,16 +300,93 @@ def display_summary(results: list[dict], w: Writer):
     w()
 
 
+# ── Compare-all mode ──────────────────────────────────────────────────────────
+
+def run_compare_all(df: pd.DataFrame):
+    """
+    Run cross-validation for every preset and print a single comparison table.
+    Bracket simulation is skipped in this mode to keep runtime manageable.
+    """
+    print("\n" + "=" * 68)
+    print("  PRESET COMPARISON — leave-one-season-out cross-validation")
+    print("=" * 68)
+    print(f"  {'Preset':<25} {'Features':>8} {'Mean Acc':>10} {'Mean LL':>10} {'Mean BS':>10}")
+    print("-" * 68)
+
+    for preset_name, feature_cols in PRESETS.items():
+        missing = [c for c in feature_cols if c not in df.columns]
+        if missing:
+            print(f"  {preset_name:<25}   [skip — missing columns: {missing}]")
+            continue
+
+        accs, losses, briers = [], [], []
+        for season in SEASONS:
+            train_df = df[df["SEASON"] != season]
+            test_df  = df[df["SEASON"] == season]
+            if train_df.empty or test_df.empty:
+                continue
+
+            model = LogisticRegression(learning_rate=0.1, epochs=1000, lambda_=0.01)
+            model.fit(train_df[feature_cols].values, train_df["LABEL"].values)
+
+            y_proba = model.predict_proba(test_df[feature_cols].values)
+            y_true  = test_df["LABEL"].values
+            m = compute_metrics(y_true, y_proba)
+            accs.append(m["accuracy"])
+            losses.append(m["log_loss"])
+            briers.append(m["brier"])
+
+        if accs:
+            print(f"  {preset_name:<25} {len(feature_cols):>8} "
+                  f"{np.mean(accs):>10.3f} {np.mean(losses):>10.3f} {np.mean(briers):>10.3f}")
+
+    print("=" * 68)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    os.makedirs(RESULTS_DIR, exist_ok=True)
-    w = Writer()
+    parser = argparse.ArgumentParser(description="NBA playoff prediction evaluation")
+    parser.add_argument(
+        "--preset", default=DEFAULT_PRESET,
+        choices=list(PRESETS.keys()),
+        help="Feature preset to use (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--compare-all", action="store_true",
+        help="Run all presets and print a comparison table (no bracket output)"
+    )
+    parser.add_argument(
+        "--list-presets", action="store_true",
+        help="Print available feature presets and exit"
+    )
+    args = parser.parse_args()
 
+    if args.list_presets:
+        list_presets()
+        return
+
+    os.makedirs(RESULTS_DIR, exist_ok=True)
     df = pd.read_csv(DATA_PATH)
+
+    if args.compare_all:
+        run_compare_all(df)
+        return
+
+    # ── Single preset full evaluation ─────────────────────────────────────────
+    feature_cols = get_preset(args.preset)
+
+    missing = [c for c in feature_cols if c not in df.columns]
+    if missing:
+        print(f"ERROR: columns missing from {DATA_PATH}: {missing}")
+        print("Re-run DataScrape.py (with --clutch if needed) to regenerate.")
+        return
+
+    w = Writer()
 
     w("=" * 74)
     w("  NBA PLAYOFF OUTCOME PREDICTION — EVALUATION REPORT")
+    w(f"  Preset : {args.preset} ({len(feature_cols)} features)")
     w("  Model  : Logistic Regression (implemented from scratch, NumPy)")
     w("  Method : Leave-one-season-out cross-validation")
     w(f"  Data   : {len(df)} playoff game examples, {df['SEASON'].nunique()} seasons")
@@ -340,12 +400,14 @@ def main():
         w(f"  SEASON: {season}")
         w("─" * 74)
 
-        result = evaluate_season(season, df, w)
+        result = evaluate_season(season, df, feature_cols, w)
         if result:
             all_results.append(result)
 
-    display_summary(all_results, w)
-    w.save(os.path.join(RESULTS_DIR, "evaluation_report.txt"))
+    display_summary(all_results, feature_cols, w)
+
+    report_name = f"evaluation_report_{args.preset}.txt"
+    w.save(os.path.join(RESULTS_DIR, report_name))
 
 
 if __name__ == "__main__":
