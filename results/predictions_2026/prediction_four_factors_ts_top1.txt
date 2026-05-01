@@ -1,0 +1,90 @@
+============================================================
+  2025-26 NBA Playoff Prediction — four_factors_ts_top1
+============================================================
+
+  ── WESTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) OKC Thunder vs (8) PHX Suns                → OKC Thunder (96%)
+    (2) SA Spurs vs (7) POR Trail Blazers       → SA Spurs (94%)
+    (3) DEN Nuggets vs (6) MIN Timberwolves        → DEN Nuggets (87%)
+    (4) LAL Lakers vs (5) HOU Rockets             → LAL Lakers (53%)
+
+  Semifinals
+    OKC Thunder vs LAL Lakers                  → OKC Thunder (90%)
+    SA Spurs vs DEN Nuggets                 → SA Spurs (59%)
+
+  Conference Finals
+    OKC Thunder vs SA Spurs                    → SA Spurs (55%)
+
+
+  ── EASTERN CONFERENCE ────────────────────────────────────
+
+  First Round
+    (1) DET Pistons vs (8) ORL Magic               → DET Pistons (83%)
+    (2) BOS Celtics vs (7) PHI 76ers               → BOS Celtics (85%)
+    (3) NYK Knicks vs (6) ATL Hawks               → NYK Knicks (79%)
+    (4) CLE Cavaliers vs (5) TOR Raptors             → CLE Cavaliers (64%)
+
+  Semifinals
+    DET Pistons vs CLE Cavaliers               → DET Pistons (68%)
+    BOS Celtics vs NYK Knicks                  → BOS Celtics (53%)
+
+  Conference Finals
+    DET Pistons vs BOS Celtics                 → DET Pistons (60%)
+
+  ── NBA FINALS ──────────────────────────────────────────────────────
+    DET Pistons vs SA Spurs                    → SA Spurs (77%)
+
+  ★  PREDICTED CHAMPION: SA Spurs (77% to win Finals)
+
+Simulating full bracket...
+
+
+Championship probabilities:
+  ==============================================================
+  TEAM                        CONF WIN%     CHAMP%
+  ==============================================================
+  OKC Thunder                    44.9%     34.8%  ██████████
+  SA Spurs                       35.6%     29.4%  ████████
+  DET Pistons                    41.0%     11.9%  ███
+  DEN Nuggets                    16.1%      9.7%  ██
+  BOS Celtics                    27.1%      6.7%  ██
+  NYK Knicks                     19.6%      4.5%  █
+  CLE Cavaliers                   8.1%      1.5%  
+  HOU Rockets                     1.7%      0.7%  
+  LAL Lakers                      1.2%      0.4%  
+  ATL Hawks                       1.5%      0.1%  
+  MIN Timberwolves                0.3%      0.1%  
+  TOR Raptors                     1.3%      0.1%  
+  ORL Magic                       0.9%      0.1%  
+  PHI 76ers                       0.5%      0.0%  
+  POR Trail Blazers               0.1%      0.0%  
+  PHX Suns                        0.0%      0.0%  
+  ==============================================================
+  Sanity check — probs sum to: 1.000000
+
+First-round series win probabilities (higher seed):
+--------------------------------------------------------
+  [West] (1) OKC Thunder          vs (8) PHX Suns              95.8%  ███████████████████
+  [West] (4) LAL Lakers           vs (5) HOU Rockets           52.8%  ██████████
+  [West] (3) DEN Nuggets          vs (6) MIN Timberwolves      87.4%  █████████████████
+  [West] (2) SA Spurs             vs (7) POR Trail Blazers     94.3%  ██████████████████
+  [East] (1) DET Pistons          vs (8) ORL Magic             83.1%  ████████████████
+  [East] (4) CLE Cavaliers        vs (5) TOR Raptors           63.7%  ████████████
+  [East] (3) NYK Knicks           vs (6) ATL Hawks             79.0%  ███████████████
+  [East] (2) BOS Celtics          vs (7) PHI 76ers             84.7%  ████████████████
+
+
+Feature weights (normalized scale):
+  feature                      weight
+  ----------------------------------------
+  DIFF_TOP1_PM                 +0.3906  ███████
+  DIFF_TS_PCT                  +0.2337  ████
+  H2H_WIN_PCT                  +0.1132  ██
+  DIFF_DRB_PCT                 +0.0969  █
+  DIFF_ORB_PCT                 +0.0575  █
+  DIFF_OPP_TS_PCT              -0.0270  
+  DIFF_TOV_PCT                 +0.0226  
+  DIFF_OPP_TOV_PCT             +0.0005  
+  bias                         +0.5704

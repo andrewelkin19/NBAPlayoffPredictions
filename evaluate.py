@@ -32,6 +32,29 @@ SEASONS = [
                           "2023-24", "2024-25"
 ]
 
+# Actual NBA champions for each season in our dataset.
+# Used by --compare-all to evaluate championship prediction accuracy.
+ACTUAL_CHAMPIONS = {
+    "2005-06": 1610612748,  # Miami Heat
+    "2006-07": 1610612759,  # San Antonio Spurs
+    "2007-08": 1610612738,  # Boston Celtics
+    "2008-09": 1610612747,  # Los Angeles Lakers
+    "2009-10": 1610612747,  # Los Angeles Lakers
+    "2010-11": 1610612742,  # Dallas Mavericks
+    "2012-13": 1610612748,  # Miami Heat
+    "2013-14": 1610612759,  # San Antonio Spurs
+    "2014-15": 1610612744,  # Golden State Warriors
+    "2015-16": 1610612739,  # Cleveland Cavaliers
+    "2016-17": 1610612744,  # Golden State Warriors
+    "2017-18": 1610612744,  # Golden State Warriors
+    "2018-19": 1610612761,  # Toronto Raptors
+    "2020-21": 1610612749,  # Milwaukee Bucks
+    "2021-22": 1610612744,  # Golden State Warriors
+    "2022-23": 1610612743,  # Denver Nuggets
+    "2023-24": 1610612738,  # Boston Celtics
+    "2024-25": 1610612760,  # Oklahoma City Thunder
+}
+
 DATA_PATH   = "data/training_data.csv"
 RESULTS_DIR = "results"
 
@@ -79,7 +102,8 @@ def build_seed_lookup(east_bracket: dict, west_bracket: dict) -> dict:
     return lookup
 
 
-def higher_seed_baseline(test_df: pd.DataFrame, seed_lookup: dict) -> tuple[float, int]:
+def higher_seed_baseline(test_df: pd.DataFrame, seed_lookup: dict,
+                         team_stats: dict = None) -> tuple[float, int]:
     correct = 0
     total   = 0
 
@@ -90,11 +114,27 @@ def higher_seed_baseline(test_df: pd.DataFrame, seed_lookup: dict) -> tuple[floa
         away_seed = seed_lookup.get(away_tid)
 
         if home_seed is None or away_seed is None:
-            continue
+            # Team missing from seed lookup (e.g. relocated franchise edge case).
+            # Fall back to win percentage from team_stats if available.
+            if team_stats is not None:
+                home_wp = team_stats.get(home_tid, {}).get("WIN_PCT", 0.5)
+                away_wp = team_stats.get(away_tid, {}).get("WIN_PCT", 0.5)
+                higher_seed_is_home = home_wp >= away_wp
+            else:
+                continue  # no fallback available — skip
+        elif home_seed != away_seed:
+            higher_seed_is_home = home_seed < away_seed
+        else:
+            # Equal seeds (Finals tiebreak) — use WIN_PCT
+            if team_stats is not None:
+                home_wp = team_stats.get(home_tid, {}).get("WIN_PCT", 0.5)
+                away_wp = team_stats.get(away_tid, {}).get("WIN_PCT", 0.5)
+                higher_seed_is_home = home_wp >= away_wp
+            else:
+                continue
 
-        higher_seed_is_home = home_seed < away_seed
-        home_won            = int(row["LABEL"]) == 1
-        higher_seed_won     = higher_seed_is_home == home_won
+        home_won        = int(row["LABEL"]) == 1
+        higher_seed_won = higher_seed_is_home == home_won
 
         correct += int(higher_seed_won)
         total   += 1
@@ -121,7 +161,7 @@ def home_court(team_a, team_b, seed_lookup):
     seed_a = seed_lookup.get(int(team_a["TEAM_ID"]))
     seed_b = seed_lookup.get(int(team_b["TEAM_ID"]))
 
-    if seed_a is not None and seed_b is not None:
+    if seed_a is not None and seed_b is not None and seed_a != seed_b:
         return (team_a, team_b) if seed_a < seed_b else (team_b, team_a)
 
     return (team_a, team_b) if team_a["WIN_PCT"] >= team_b["WIN_PCT"] else (team_b, team_a)
@@ -222,7 +262,7 @@ def evaluate_season(
 
     y_proba              = model.predict_proba(X_test)
     metrics              = compute_metrics(y_test, y_proba)
-    baseline, n_matched  = higher_seed_baseline(test_df, seed_lookup)
+    baseline, n_matched  = higher_seed_baseline(test_df, seed_lookup, team_stats)
     n_games              = len(test_df)
 
     if n_matched < n_games:
@@ -302,24 +342,138 @@ def display_summary(results: list[dict], feature_cols: list[str], w: Writer):
 
 # ── Compare-all mode ──────────────────────────────────────────────────────────
 
+def get_actual_series_results(season_df: pd.DataFrame) -> dict:
+    """
+    Derive actual series winners from game-level playoff data.
+
+    Groups games by unique {team_a, team_b} pairs and counts wins for each side.
+    Works for all rounds since each pair only meets once per playoff bracket.
+
+    Returns:
+        dict mapping frozenset({team_id_a, team_id_b}) -> winning_team_id
+    """
+    pairs = set()
+    for _, row in season_df.iterrows():
+        pairs.add(frozenset([int(row["TEAM_ID"]), int(row["OPP_TEAM_ID"])]))
+
+    results = {}
+    for pair in pairs:
+        a, b = list(pair)
+        a_wins = (
+            len(season_df[(season_df["TEAM_ID"] == a) &
+                          (season_df["OPP_TEAM_ID"] == b) &
+                          (season_df["LABEL"] == 1)]) +
+            len(season_df[(season_df["TEAM_ID"] == b) &
+                          (season_df["OPP_TEAM_ID"] == a) &
+                          (season_df["LABEL"] == 0)])
+        )
+        b_wins = (
+            len(season_df[(season_df["TEAM_ID"] == b) &
+                          (season_df["OPP_TEAM_ID"] == a) &
+                          (season_df["LABEL"] == 1)]) +
+            len(season_df[(season_df["TEAM_ID"] == a) &
+                          (season_df["OPP_TEAM_ID"] == b) &
+                          (season_df["LABEL"] == 0)])
+        )
+        results[pair] = a if a_wins >= b_wins else b
+
+    return results
+
 def run_compare_all(df: pd.DataFrame):
     """
-    Run cross-validation for every preset and print a single comparison table.
-    Bracket simulation is skipped in this mode to keep runtime manageable.
+    Run cross-validation for every preset and save a comparison table.
+    Includes champion and series prediction accuracy via bracket simulation.
+    Also computes model-free baselines for comparison.
+    Output saved to results/preset_comparison.txt.
     """
-    print("\n" + "=" * 68)
-    print("  PRESET COMPARISON — leave-one-season-out cross-validation")
-    print("=" * 68)
-    print(f"  {'Preset':<25} {'Features':>8} {'Mean Acc':>10} {'Mean LL':>10} {'Mean BS':>10}")
-    print("-" * 68)
+    w = Writer()
+
+    w("=" * 96)
+    w("  PRESET COMPARISON — leave-one-season-out cross-validation")
+    w(f"  Data: {len(df)} games, {len(SEASONS)} seasons")
+    w("  Champ:  seasons where argmax P(champion) == actual champion")
+    w("  Series: all playoff series (all rounds); predicted winner = team with P(series win) > 0.5")
+    w("=" * 96)
+
+    # ── Compute model-free baselines (one pass over seasons) ──────────────────
+    # These don't depend on any trained model so we compute them once up front.
+    # All bracket data is cached on disk after the first run, so this is fast.
+    #
+    # Equivalence note: "always pick home team" and "always pick higher seed"
+    # produce IDENTICAL series and championship predictions.  Under the home-
+    # team rule, the higher seed (who hosts games 1,2,5,7) wins 4 home games
+    # and the lower seed wins 3 (games 3,4,6) — the series always ends 4-3 in
+    # favour of the higher seed.  So only one series/champion baseline is needed.
+    seed_game_corr  = seed_game_tot  = 0
+    home_game_corr  = home_game_tot  = 0
+    seed_series_corr = seed_series_tot = 0
+    seed_champ_corr  = seed_champ_tot  = 0
+
+    for season in SEASONS:
+        test_df = df[df["SEASON"] == season]
+        if test_df.empty:
+            continue
+        try:
+            _ts, _   = load_season_data(season, path=DATA_PATH)
+            _east, _west, _ = load_playoff_bracket(season, _ts)
+            _sl      = build_seed_lookup(_east, _west)
+
+            # Game accuracy — higher seed
+            base, n  = higher_seed_baseline(test_df, _sl, _ts)
+            seed_game_corr += round(base * n)
+            seed_game_tot  += n
+
+            # Game accuracy — home team always wins
+            home_game_corr += int((test_df["LABEL"] == 1).sum())
+            home_game_tot  += len(test_df)
+
+            # Series accuracy — always pick higher seed (WIN_PCT tiebreak for Finals)
+            actual_series = get_actual_series_results(test_df)
+            for pair, actual_winner in actual_series.items():
+                a, b = list(pair)
+                sa, sb = _sl.get(a, 999), _sl.get(b, 999)
+                if sa != sb:
+                    predicted = a if sa < sb else b
+                else:
+                    wpa = _ts.get(a, {}).get("WIN_PCT", 0.5)
+                    wpb = _ts.get(b, {}).get("WIN_PCT", 0.5)
+                    predicted = a if wpa >= wpb else b
+                seed_series_corr += int(predicted == actual_winner)
+                seed_series_tot  += 1
+
+            # Champion accuracy — always pick each conference's 1-seed;
+            # Finals winner = whichever 1-seed has the better regular-season record
+            actual_champ = ACTUAL_CHAMPIONS.get(season)
+            if actual_champ is not None:
+                e_tid = _east[1]["TEAM_ID"]
+                w_tid = _west[1]["TEAM_ID"]
+                e_wp  = _ts.get(e_tid, {}).get("WIN_PCT", 0.5)
+                w_wp  = _ts.get(w_tid, {}).get("WIN_PCT", 0.5)
+                pred  = e_tid if e_wp >= w_wp else w_tid
+                seed_champ_corr += int(pred == actual_champ)
+                seed_champ_tot  += 1
+
+        except Exception:
+            pass
+
+    seed_game_acc  = seed_game_corr  / seed_game_tot   if seed_game_tot   > 0 else 0.0
+    home_game_acc  = home_game_corr  / home_game_tot   if home_game_tot   > 0 else 0.0
+
+    # ── Main preset comparison table ──────────────────────────────────────────
+    w(f"  {'Preset':<30} {'Feat':>4} {'Acc':>7} {'ΔAcc':>7} "
+      f"{'LL':>7} {'BS':>7}  {'Champ':>7}  {'Series':>8}")
+    w("-" * 96)
 
     for preset_name, feature_cols in PRESETS.items():
         missing = [c for c in feature_cols if c not in df.columns]
         if missing:
-            print(f"  {preset_name:<25}   [skip — missing columns: {missing}]")
+            w(f"  {preset_name:<30}   [skip — missing columns: {missing}]")
             continue
 
-        accs, losses, briers = [], [], []
+        accs, losses, briers, deltas = [], [], [], []
+        champ_correct = champ_total = 0
+        series_correct = series_total = 0
+
         for season in SEASONS:
             train_df = df[df["SEASON"] != season]
             test_df  = df[df["SEASON"] == season]
@@ -336,11 +490,87 @@ def run_compare_all(df: pd.DataFrame):
             losses.append(m["log_loss"])
             briers.append(m["brier"])
 
-        if accs:
-            print(f"  {preset_name:<25} {len(feature_cols):>8} "
-                  f"{np.mean(accs):>10.3f} {np.mean(losses):>10.3f} {np.mean(briers):>10.3f}")
+            # Bracket-dependent stats: Δ Acc baseline + champion + series.
+            # All three share one bracket load so load_playoff_bracket is only
+            # called once per season — avoids duplicate API/cache reads and the
+            # associated debug printout noise.
+            try:
+                team_stats, h2h_lookup = load_season_data(season, path=DATA_PATH)
+                east_bracket, west_bracket, _ = load_playoff_bracket(season, team_stats)
+                seed_lookup = build_seed_lookup(east_bracket, west_bracket)
 
-    print("=" * 68)
+                # Δ Acc vs seeding baseline
+                base, _ = higher_seed_baseline(test_df, seed_lookup, team_stats)
+                deltas.append(m["accuracy"] - base)
+
+                # Champion accuracy
+                actual_champ = ACTUAL_CHAMPIONS.get(season)
+                if actual_champ is not None:
+                    champ_probs, _ = simulate_bracket(
+                        west_bracket, east_bracket, model, h2h_lookup, feature_cols
+                    )
+                    predicted_champ = max(champ_probs.items(), key=lambda x: x[1])[0]
+                    champ_correct += int(predicted_champ == actual_champ)
+                    champ_total += 1
+
+                # Series accuracy — all rounds, derived from game data
+                actual_series = get_actual_series_results(test_df)
+                for pair, actual_winner in actual_series.items():
+                    a, b = list(pair)
+                    if a not in team_stats or b not in team_stats:
+                        continue
+                    seed_a = seed_lookup.get(a, 999)
+                    seed_b = seed_lookup.get(b, 999)
+                    higher = team_stats[a] if seed_a < seed_b else team_stats[b]
+                    lower  = team_stats[b] if seed_a < seed_b else team_stats[a]
+                    p = series_win_prob(model, higher, lower, h2h_lookup, feature_cols)
+                    predicted_winner = higher["TEAM_ID"] if p > 0.5 else lower["TEAM_ID"]
+                    series_correct += int(predicted_winner == actual_winner)
+                    series_total += 1
+
+            except Exception:
+                deltas.append(0.0)  # fallback if bracket load fails
+
+        if not accs:
+            continue
+
+        mean_delta = np.mean(deltas)
+        sign = "+" if mean_delta >= 0 else ""
+        champ_str  = f"{champ_correct}/{champ_total}"  if champ_total  > 0 else "—"
+        series_str = f"{series_correct}/{series_total}" if series_total > 0 else "—"
+
+        w(f"  {preset_name:<30} {len(feature_cols):>4} "
+          f"{np.mean(accs):>7.3f} {sign}{mean_delta:>6.3f} "
+          f"{np.mean(losses):>7.3f} {np.mean(briers):>7.3f}  "
+          f"{champ_str:>7}  {series_str:>8}")
+
+    # ── Baseline reference rows ────────────────────────────────────────────────
+    w("=" * 96)
+    w()
+    w("  MODEL-FREE BASELINES")
+    w("  " + "-" * 70)
+    w(f"  {'Rule':<40} {'Game Acc':>9}  {'Series':>8}  {'Champ':>7}")
+    w("  " + "-" * 70)
+    w(f"  {'Always pick higher seed':<40} {seed_game_acc:>9.3f}  "
+      f"{seed_series_corr}/{seed_series_tot:>3}  {seed_champ_corr}/{seed_champ_tot}")
+    w(f"  {'Always pick home team':<40} {home_game_acc:>9.3f}  "
+      f"{'(same)':>8}  {'(same)':>7}")
+    w("  " + "-" * 70)
+    w("  Series and championship baselines are identical for both rules:")
+    w("  'always pick home team' → higher seed wins every series 4-3")
+    w("  (higher seed hosts games 1,2,5,7; lower seed hosts 3,4,6)")
+    w("  " + "-" * 70)
+    w()
+    w("  Notes:")
+    w("  - ΔAcc: model accuracy minus always-pick-higher-seed baseline per game")
+    w("  - Champ: predicted champion = team with highest P(championship) from bracket simulation")
+    w("  - Series: all 15 series/season across all rounds; home court = lower seed number")
+    w("  - Log-loss and Brier score: lower is better")
+    w()
+
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    out_path = os.path.join(RESULTS_DIR, "preset_comparison.txt")
+    w.save(out_path)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────

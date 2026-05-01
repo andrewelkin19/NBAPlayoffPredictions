@@ -14,6 +14,14 @@ Adding a new feature:
 
 # ── Preset definitions ────────────────────────────────────────────────────────
 
+OFF_DEF_RATING = [
+    "DIFF_OFF_RATING",
+    "DIFF_DEF_RATING",
+]
+
+NET_RATING = [
+    "DIFF_NET_RATING",
+]
 # Dean Oliver's Four Factors (offense + defense) + head-to-head record.
 # Baseline feature set — all features are differentials (home minus away).
 FOUR_FACTORS = [
@@ -128,6 +136,14 @@ FOUR_FACTORS_TS_STAR_FULL = FOUR_FACTORS_TS + [
     "DIFF_TOP3_AVG_PM",
 ]
 
+FOUR_FACTORS_TS_TOP3 = FOUR_FACTORS_TS + [
+    "DIFF_TOP3_AVG_PM"
+]
+
+FOUR_FACTORS_TS_TOP1 = FOUR_FACTORS_TS + [
+    "DIFF_TOP1_PM"
+]
+
 # ── BPM variants ──────────────────────────────────────────────────────────────
 # These mirror the PM presets but use Box Plus/Minus from Basketball Reference
 # instead of raw per-game plus/minus. BPM adjusts for team context and role,
@@ -148,6 +164,14 @@ FOUR_FACTORS_BPM_FULL = FOUR_FACTORS + [
     "DIFF_TOP3_AVG_BPM",
 ]
 
+FOUR_FACTORS_TS_BPM_TOP3 = FOUR_FACTORS_TS + [
+    "DIFF_TOP3_AVG_BPM"
+]
+
+FOUR_FACTORS_TS_BPM_TOP1 = FOUR_FACTORS_TS + [
+    "DIFF_TOP1_BPM"
+]
+
 PRESETS: dict[str, list[str]] = {
     "four_factors":                  FOUR_FACTORS,
     "four_factors_clutch":           FOUR_FACTORS_CLUTCH,
@@ -164,8 +188,15 @@ PRESETS: dict[str, list[str]] = {
     "four_factors_bpm_full":         FOUR_FACTORS_BPM_FULL,
     "minimal":                       MINIMAL,
     "offense_only":                  OFFENSE_ONLY,
-    "four_factors_ts":           FOUR_FACTORS_TS,
-    "four_factors_ts_star_full": FOUR_FACTORS_TS_STAR_FULL,
+    "four_factors_ts":               FOUR_FACTORS_TS,
+    "four_factors_ts_star_full":     FOUR_FACTORS_TS_STAR_FULL,
+    "four_factors_ts_top3" :         FOUR_FACTORS_TS_TOP3,
+    "four_factors_ts_top1" :         FOUR_FACTORS_TS_TOP1,
+    "four_factors_ts_bpm_top3":      FOUR_FACTORS_TS_BPM_TOP3,
+    "four_factors_ts_bpm_top1":      FOUR_FACTORS_TS_BPM_TOP1,
+    "off_def_rating":                OFF_DEF_RATING,
+    "net_rating":                    NET_RATING,
+    
 }
 
 DESCRIPTIONS: dict[str, str] = {

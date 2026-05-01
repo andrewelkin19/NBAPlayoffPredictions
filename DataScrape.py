@@ -14,6 +14,7 @@ Optional features (each requires a flag):
   --star-players TOP1_PM, TOP2_AVG_PM, TOP3_AVG_PM
   --bpm          TOP1_BPM, TOP2_AVG_BPM, TOP3_AVG_BPM  (requires scrape_bpm.py)
   --ts           TS_PCT, OPP_TS_PCT (True Shooting % — includes free throws)
+  --ratings      OFF_RATING, DEF_RATING, NET_RATING (official NBA per-100-possession ratings)
 
 Output: data/training_data.csv, data/playoff_brackets.csv
 
@@ -21,6 +22,7 @@ Usage:
   python DataScrape.py                                  # Four Factors only
   python DataScrape.py --clutch --star-players --bpm    # all features
   python DataScrape.py --clutch --star-players --bpm --ts  # including TS%
+  python DataScrape.py --ratings                        # include official ratings
 """
 
 import argparse
@@ -28,7 +30,7 @@ import time
 import os
 import pandas as pd
 import numpy as np
-from nba_api.stats.endpoints import leaguegamefinder, leaguedashteamclutch, leaguedashplayerstats
+from nba_api.stats.endpoints import leaguegamefinder, leaguedashteamclutch, leaguedashplayerstats, leaguedashteamstats
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -196,6 +198,48 @@ def fetch_player_game_logs(season: str, season_type: str = "Playoffs") -> pd.Dat
             df["GAME_ID"] = df["GAME_ID"].astype(str)
             df.to_csv(cache_path, index=False)
             print(f"  Player game logs cached: {cache_path}")
+            return df
+        except Exception as e:
+            if attempt == MAX_RETRIES:
+                raise
+            wait = SLEEP_SEC * (2 ** attempt)
+            print(f"  Attempt {attempt} failed ({e}). Retrying in {wait:.1f}s...")
+            time.sleep(wait)
+
+
+# ── Step 1d: Fetch official advanced team stats ───────────────────────────────
+
+def fetch_advanced_team_stats(season: str) -> pd.DataFrame:
+    """
+    Fetch official per-team advanced stats (OFF_RATING, DEF_RATING, NET_RATING)
+    from nba_api's LeagueDashTeamStats endpoint with measure_type='Advanced'.
+
+    These are the NBA's official possession-normalized ratings, avoiding the
+    approximation error in hand-computed possession estimates.
+    Results cached to data/cache_{season}_advanced_stats.csv.
+    """
+    cache_path = os.path.join(DATA_DIR, f"cache_{season}_advanced_stats.csv")
+
+    if os.path.exists(cache_path):
+        print(f"  Loading advanced stats from cache: {cache_path}")
+        df = pd.read_csv(cache_path)
+        df["TEAM_ID"] = df["TEAM_ID"].astype(int)
+        return df
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            endpoint = leaguedashteamstats.LeagueDashTeamStats(
+                season=season,
+                measure_type_detailed_defense="Advanced",
+                per_mode_detailed="PerGame",
+                season_type_all_star="Regular Season",
+                timeout=TIMEOUT,
+            )
+            sleep()
+            df = endpoint.get_data_frames()[0]
+            df["TEAM_ID"] = df["TEAM_ID"].astype(int)
+            df.to_csv(cache_path, index=False)
+            print(f"  Advanced stats cached: {cache_path}")
             return df
         except Exception as e:
             if attempt == MAX_RETRIES:
@@ -384,6 +428,32 @@ def compute_star_player_features(
 from scrape_bpm import load_bpm_season, compute_star_bpm_features
 
 
+# ── Step 2e: Merge official advanced ratings ──────────────────────────────────
+
+def compute_advanced_ratings(
+    team_features: pd.DataFrame,
+    advanced_df: pd.DataFrame,
+) -> pd.DataFrame:
+    ratings = advanced_df[["TEAM_ID", "OFF_RATING", "DEF_RATING", "NET_RATING"]].copy()
+    ratings["TEAM_ID"] = ratings["TEAM_ID"].astype(int)
+
+    # Drop the approximated NET_RATING (mean PLUS_MINUS per game) so the
+    # official per-100-possession version from advanced stats takes its place
+    # without pandas creating NET_RATING_x / NET_RATING_y suffixes.
+    tf = team_features.drop(columns=["NET_RATING"], errors="ignore")
+
+    merged = tf.merge(ratings, on="TEAM_ID", how="left")
+
+    n_missing = merged["OFF_RATING"].isna().sum()
+    if n_missing:
+        print(f"  [warning] {n_missing} teams missing advanced ratings — filled with 0.0")
+
+    merged["OFF_RATING"] = merged["OFF_RATING"].fillna(0.0)
+    merged["DEF_RATING"] = merged["DEF_RATING"].fillna(0.0)
+    merged["NET_RATING"] = merged["NET_RATING"].fillna(0.0)
+    return merged
+
+
 # ── Step 3: Compute head-to-head regular season win rate ──────────────────────
 
 def compute_h2h(reg_season_logs: pd.DataFrame) -> pd.DataFrame:
@@ -425,10 +495,11 @@ def build_training_examples(
 
     Optional feature groups are included only if the corresponding columns
     exist in team_features AND the relevant flag was passed:
-      - clutch:  CLUTCH_WIN_PCT, CLUTCH_NET_RATING   (auto-detected)
-      - star PM: TOP1_PM, TOP2_AVG_PM, TOP3_AVG_PM   (auto-detected)
-      - BPM:     TOP1_BPM, TOP2_AVG_BPM, TOP3_AVG_BPM (auto-detected)
-      - TS%:     TS_PCT, OPP_TS_PCT                   (requires include_ts=True)
+      - clutch:   CLUTCH_WIN_PCT, CLUTCH_NET_RATING   (auto-detected)
+      - star PM:  TOP1_PM, TOP2_AVG_PM, TOP3_AVG_PM   (auto-detected)
+      - BPM:      TOP1_BPM, TOP2_AVG_BPM, TOP3_AVG_BPM (auto-detected)
+      - TS%:      TS_PCT, OPP_TS_PCT                   (requires include_ts=True)
+      - ratings:  OFF_RATING, DEF_RATING, NET_RATING   (auto-detected)
     """
     df = playoff_logs.copy()
     df["WIN"]  = (df["WL"] == "W").astype(int)
@@ -477,6 +548,11 @@ def build_training_examples(
     has_bpm = "TOP1_BPM" in team_features.columns
     if has_bpm:
         base_feat_cols += ["TOP1_BPM", "TOP2_AVG_BPM", "TOP3_AVG_BPM"]
+
+    # Official advanced ratings are included whenever --ratings was passed
+    has_ratings = "OFF_RATING" in team_features.columns
+    if has_ratings:
+        base_feat_cols += ["OFF_RATING", "DEF_RATING", "NET_RATING"]
 
     home_feats = team_features[base_feat_cols].add_prefix("HOME_").rename(
         columns={"HOME_TEAM_ID": "TEAM_ID"}
@@ -527,6 +603,12 @@ def build_training_examples(
         games["DIFF_TOP1_BPM"]     = games["HOME_TOP1_BPM"]     - games["AWAY_TOP1_BPM"]
         games["DIFF_TOP2_AVG_BPM"] = games["HOME_TOP2_AVG_BPM"] - games["AWAY_TOP2_AVG_BPM"]
         games["DIFF_TOP3_AVG_BPM"] = games["HOME_TOP3_AVG_BPM"] - games["AWAY_TOP3_AVG_BPM"]
+
+    # ── Advanced rating differentials ─────────────────────────────────────────
+    if has_ratings:
+        games["DIFF_OFF_RATING"] = games["HOME_OFF_RATING"] - games["AWAY_OFF_RATING"]
+        games["DIFF_DEF_RATING"] = games["HOME_DEF_RATING"] - games["AWAY_DEF_RATING"]
+        games["DIFF_NET_RATING"] = games["HOME_NET_RATING"] - games["AWAY_NET_RATING"]
 
     games.rename(columns={"WIN": "LABEL"}, inplace=True)
     return games
@@ -593,14 +675,20 @@ def main():
              "TS%% = PTS / (2*(FGA + 0.44*FTA)) — incorporates free throw value "
              "unlike eFG%% which only adjusts for 3-pointers."
     )
+    parser.add_argument(
+        "--ratings", action="store_true",
+        help="Fetch official NBA advanced stats and add DIFF_OFF_RATING, "
+             "DIFF_DEF_RATING, DIFF_NET_RATING columns."
+    )
     args = parser.parse_args()
 
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    print(f"Clutch features     : {'ENABLED' if args.clutch       else 'disabled  (pass --clutch)'}")
-    print(f"Star player features: {'ENABLED' if args.star_players else 'disabled  (pass --star-players)'}")
-    print(f"BPM features        : {'ENABLED' if args.bpm          else 'disabled  (pass --bpm, requires scrape_bpm.py)'}")
-    print(f"True Shooting %%     : {'ENABLED' if args.ts           else 'disabled  (pass --ts)'}")
+    print(f"Clutch features     : {'ENABLED' if args.clutch        else 'disabled  (pass --clutch)'}")
+    print(f"Star player features: {'ENABLED' if args.star_players  else 'disabled  (pass --star-players)'}")
+    print(f"BPM features        : {'ENABLED' if args.bpm           else 'disabled  (pass --bpm, requires scrape_bpm.py)'}")
+    print(f"True Shooting %%     : {'ENABLED' if args.ts            else 'disabled  (pass --ts)'}")
+    print(f"Advanced ratings    : {'ENABLED' if args.ratings       else 'disabled  (pass --ratings)'}")
     print()
 
     all_training = []
@@ -650,6 +738,12 @@ def main():
             if args.ts:
                 print(f"  → TS%% will be included in training examples")
 
+            if args.ratings:
+                print("  Fetching official advanced team stats...")
+                advanced_df   = fetch_advanced_team_stats(season)
+                team_features = compute_advanced_ratings(team_features, advanced_df)
+                print(f"  → OFF_RATING / DEF_RATING / NET_RATING merged for {len(team_features)} teams")
+
             print("  Computing head-to-head records...")
             h2h = compute_h2h(reg_logs)
 
@@ -678,7 +772,7 @@ def main():
         print(f"\n✓ Training data saved: {training_path} ({len(training_df)} rows, {n_cols} cols)")
 
         extra_cols = [c for c in training_df.columns
-                      if any(k in c for k in ("CLUTCH", "TOP", "TS_PCT"))]
+                      if any(k in c for k in ("CLUTCH", "TOP", "TS_PCT", "RATING"))]
         if extra_cols:
             print(f"  Extra feature columns: {extra_cols}")
 

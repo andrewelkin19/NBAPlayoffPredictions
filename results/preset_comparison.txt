@@ -1,0 +1,50 @@
+================================================================================================
+  PRESET COMPARISON — leave-one-season-out cross-validation
+  Data: 1508 games, 18 seasons
+  Champ:  seasons where argmax P(champion) == actual champion
+  Series: all playoff series (all rounds); predicted winner = team with P(series win) > 0.5
+================================================================================================
+  Preset                         Feat     Acc    ΔAcc      LL      BS    Champ    Series
+------------------------------------------------------------------------------------------------
+  four_factors                      9   0.651 + 0.040   0.630   0.220     7/18   190/270
+  four_factors_clutch              11   0.647 + 0.037   0.630   0.220     7/18   191/270
+  four_factors_star                11   0.665 + 0.055   0.624   0.217     8/18   189/270
+  four_factors_top1                10   0.663 + 0.053   0.624   0.217     8/18   189/270
+  four_factors_top3                10   0.669 + 0.058   0.624   0.217     6/18   190/270
+  four_factors_star_full           12   0.671 + 0.061   0.624   0.217     7/18   189/270
+  four_factors_clutch_star         13   0.661 + 0.051   0.625   0.217     8/18   190/270
+  four_factors_clutch_top1         12   0.663 + 0.053   0.625   0.217     8/18   191/270
+  four_factors_clutch_top3         12   0.666 + 0.055   0.625   0.217     7/18   188/270
+  four_factors_clutch_star_full    14   0.662 + 0.052   0.625   0.217     8/18   189/270
+  four_factors_bpm_top1            10   0.656 + 0.045   0.628   0.219     7/18   186/270
+  four_factors_bpm_top3            10   0.648 + 0.037   0.626   0.218     8/18   185/270
+  four_factors_bpm_full            12   0.644 + 0.033   0.626   0.218     8/18   189/270
+  minimal                           3   0.641 + 0.030   0.629   0.219     6/18   193/270
+  offense_only                      5   0.647 + 0.037   0.633   0.221     6/18   183/270
+  four_factors_ts                   7   0.656 + 0.046   0.626   0.218     5/18   191/270
+  four_factors_ts_star_full        10   0.670 + 0.060   0.623   0.216     7/18   192/270
+  four_factors_ts_top3              8   0.667 + 0.057   0.623   0.216     6/18   189/270
+  four_factors_ts_top1              8   0.665 + 0.055   0.623   0.216    10/18   194/270
+  four_factors_ts_bpm_top3          8   0.657 + 0.047   0.624   0.217     8/18   192/270
+  four_factors_ts_bpm_top1          8   0.662 + 0.052   0.625   0.218     7/18   189/270
+  off_def_rating                    2   0.658 + 0.048   0.627   0.218     7/18   194/270
+  net_rating                        1   0.662 + 0.052   0.626   0.218     8/18   195/270
+================================================================================================
+
+  MODEL-FREE BASELINES
+  ----------------------------------------------------------------------
+  Rule                                      Game Acc    Series    Champ
+  ----------------------------------------------------------------------
+  Always pick higher seed                      0.610  194/270  7/18
+  Always pick home team                        0.628    (same)   (same)
+  ----------------------------------------------------------------------
+  Series and championship baselines are identical for both rules:
+  'always pick home team' → higher seed wins every series 4-3
+  (higher seed hosts games 1,2,5,7; lower seed hosts 3,4,6)
+  ----------------------------------------------------------------------
+
+  Notes:
+  - ΔAcc: model accuracy minus always-pick-higher-seed baseline per game
+  - Champ: predicted champion = team with highest P(championship) from bracket simulation
+  - Series: all 15 series/season across all rounds; home court = lower seed number
+  - Log-loss and Brier score: lower is better

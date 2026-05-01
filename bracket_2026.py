@@ -25,6 +25,26 @@ GRAY_MED    = '#D3D1C7'
 TEXT_DARK   = '#2C2C2A'
 TEXT_MED    = '#5F5E5A'
 
+# Official team primary colors
+TEAM_COLORS = {
+    "OKC Thunder":       '#007AC1',
+    "SA Spurs":          '#000000',
+    "DET Pistons":       '#BF0D3E',
+    "DEN Nuggets":       '#0E2240',
+    "BOS Celtics":       '#007A33',
+    "NYK Knicks":        '#F58426',
+    "CLE Cavaliers":     '#860038',
+    "HOU Rockets":       '#CE1141',
+    "LAL Lakers":        '#552583',
+    "ATL Hawks":         '#E03A3E',
+    "MIN Timberwolves":  '#005083',
+    "TOR Raptors":       '#CE1141',
+    "ORL Magic":         '#0077C0',
+    "PHI 76ers":         '#006BB6',
+    "POR Trail Blazers": '#E03A3E',
+    "PHX Suns":          '#1D1160',
+}
+
 # All 16 teams sorted by championship probability
 teams = [
     ("OKC Thunder",        34.8),
@@ -48,9 +68,7 @@ teams = [
 # Reverse for horizontal bar (highest at top)
 names  = [t[0] for t in teams][::-1]
 values = [t[1] for t in teams][::-1]
-colors = [GREEN_DARK if n == 'SA Spurs' else
-          '#4CAF82'  if n == 'OKC Thunder' else
-          GRAY_MED   for n in names]
+colors = [TEAM_COLORS.get(n, GRAY_MED) for n in names]
 
 fig, ax = plt.subplots(figsize=(7, 7))
 fig.patch.set_facecolor('white')
@@ -61,7 +79,8 @@ bars  = ax.barh(y_pos, values, color=colors, height=0.6,
                 zorder=3, edgecolor='white', linewidth=0.4)
 
 ax.set_yticks(y_pos)
-ax.set_yticklabels(names, fontsize=9.5, color='black')
+labels = [f'★ {n}' if n == 'OKC Thunder' else n for n in names]
+ax.set_yticklabels(labels, fontsize=9.5, color='black')
 ax.set_xlabel("Championship Probability (%)", fontsize=10, color='black')
 ax.set_title("2025-26 Predicted Championship Probabilities",
              fontsize=11, fontweight='semibold', color='black', pad=10)
@@ -83,24 +102,19 @@ ax.spines['right'].set_visible(False)
 ax.spines['left'].set_color('black')
 ax.spines['bottom'].set_color('black')
 
-# Predicted champion annotation
-okc_idx = names.index('OKC Thunder')
-ax.annotate('★ Predicted Champion',
-            xy=(values[okc_idx], okc_idx),
-            xytext=(values[okc_idx]-12, okc_idx-1.5),
-            fontsize=8.5, color=GREEN_DARK, fontweight='semibold',
-            arrowprops=dict(arrowstyle='->', color=GREEN_DARK, lw=1.0))
+
 
 # Legend
+from matplotlib.lines import Line2D
 legend_elements = [
-    mpatches.Patch(facecolor=GREEN_DARK, label='Predicted Champion (OKC Thunder)'),
-    mpatches.Patch(facecolor=GRAY_MED,   label='Other teams'),
+    Line2D([0], [0], marker='*', color='w', markerfacecolor='black',
+           markersize=11, label='Predicted Champion'),
 ]
-ax.legend(handles=legend_elements, fontsize=8, loc='lower right',
+ax.legend(handles=legend_elements, fontsize=8.5, loc='lower right',
           framealpha=0.9, edgecolor=GRAY_MED)
 
 fig.text(0.5, -0.01,
-         "Model: four_factors_ts_top1  ·  Trained on 2005-06 through 2024-25",
+         "Trained on 2005-06 through 2024-25",
          ha='center', fontsize=7.5, color=TEXT_MED, style='italic')
 
 plt.tight_layout()
